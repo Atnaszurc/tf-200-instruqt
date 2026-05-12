@@ -1,0 +1,317 @@
+#!/bin/bash
+set -euo pipefail
+
+# Challenge 2 Check: Advanced Module Patterns
+# Validates learner progress through nested modules, conditionals, for_each, and canary patterns
+
+echo "=== Validating Challenge 2: Advanced Module Patterns ==="
+
+cd /root/terraform-workspace
+
+ERRORS=0
+
+# ============================================================================
+# Helper Functions
+# ============================================================================
+
+check_file_exists() {
+  local file=$1
+  local description=$2
+  
+  if [[ -f "$file" ]]; then
+    echo "✓ $description exists"
+    return 0
+  else
+    echo "✗ $description missing: $file"
+    ((ERRORS++))
+    return 1
+  fi
+}
+
+check_directory_exists() {
+  local dir=$1
+  local description=$2
+  
+  if [[ -d "$dir" ]]; then
+    echo "✓ $description exists"
+    return 0
+  else
+    echo "✗ $description missing: $dir"
+    ((ERRORS++))
+    return 1
+  fi
+}
+
+check_file_contains() {
+  local file=$1
+  local pattern=$2
+  local description=$3
+  
+  if [[ ! -f "$file" ]]; then
+    echo "✗ File not found: $file"
+    ((ERRORS++))
+    return 1
+  fi
+  
+  if grep -q "$pattern" "$file"; then
+    echo "✓ $description"
+    return 0
+  else
+    echo "⚠ $description - pattern not found (optional)"
+    return 1
+  fi
+}
+
+# ============================================================================
+# Section 1: Nested Module Hierarchy
+# ============================================================================
+
+echo ""
+echo "=== Section 1: Nested Module Hierarchy ==="
+
+# Check all four layers exist
+check_directory_exists "modules/network" "Network module (Layer 1)"
+check_directory_exists "modules/storage" "Storage module (Layer 2)"
+check_directory_exists "modules/compute" "Compute module (Layer 2)"
+check_directory_exists "modules/app-stack" "App-stack module (Layer 3)"
+
+# Check network module structure
+if [[ -d "modules/network" ]]; then
+  check_file_exists "modules/network/main.tf" "Network main.tf"
+  check_file_exists "modules/network/variables.tf" "Network variables.tf"
+  check_file_exists "modules/network/outputs.tf" "Network outputs.tf"
+  
+  if [[ -f "modules/network/main.tf" ]]; then
+    check_file_contains "modules/network/main.tf" "libvirt_network" "Network creates libvirt_network resource"
+  fi
+fi
+
+# Check storage module structure
+if [[ -d "modules/storage" ]]; then
+  check_file_exists "modules/storage/main.tf" "Storage main.tf"
+  check_file_exists "modules/storage/variables.tf" "Storage variables.tf"
+  check_file_exists "modules/storage/outputs.tf" "Storage outputs.tf"
+  
+  if [[ -f "modules/storage/main.tf" ]]; then
+    check_file_contains "modules/storage/main.tf" "libvirt_pool" "Storage creates libvirt_pool resource"
+    check_file_contains "modules/storage/main.tf" "for_each" "Storage uses for_each pattern"
+  fi
+fi
+
+# Check compute module structure
+if [[ -d "modules/compute" ]]; then
+  check_file_exists "modules/compute/main.tf" "Compute main.tf"
+  check_file_exists "modules/compute/variables.tf" "Compute variables.tf"
+  check_file_exists "modules/compute/outputs.tf" "Compute outputs.tf"
+  
+  if [[ -f "modules/compute/main.tf" ]]; then
+    check_file_contains "modules/compute/main.tf" "libvirt_domain" "Compute creates libvirt_domain resource"
+    check_file_contains "modules/compute/main.tf" "for_each" "Compute uses for_each pattern"
+  fi
+fi
+
+# Check app-stack module (top layer)
+if [[ -d "modules/app-stack" ]]; then
+  check_file_exists "modules/app-stack/main.tf" "App-stack main.tf"
+  check_file_exists "modules/app-stack/variables.tf" "App-stack variables.tf"
+  check_file_exists "modules/app-stack/outputs.tf" "App-stack outputs.tf"
+  
+  if [[ -f "modules/app-stack/main.tf" ]]; then
+    check_file_contains "modules/app-stack/main.tf" "module.*network" "App-stack uses network module"
+    check_file_contains "modules/app-stack/main.tf" "module.*storage" "App-stack uses storage module"
+    check_file_contains "modules/app-stack/main.tf" "module.*compute" "App-stack uses compute module"
+    
+    # Check composition (outputs as inputs)
+    if grep -q "module.network.id" modules/app-stack/main.tf; then
+      echo "✓ App-stack composes modules (network output → compute input)"
+    else
+      echo "⚠ App-stack should use module.network.id for composition"
+    fi
+  fi
+fi
+
+# ============================================================================
+# Section 2: Conditional Resources
+# ============================================================================
+
+echo ""
+echo "=== Section 2: Conditional Resources ==="
+
+check_directory_exists "modules/conditional-vm" "Conditional-VM module"
+
+if [[ -d "modules/conditional-vm" ]]; then
+  check_file_exists "modules/conditional-vm/main.tf" "Conditional-VM main.tf"
+  check_file_exists "modules/conditional-vm/variables.tf" "Conditional-VM variables.tf"
+  check_file_exists "modules/conditional-vm/outputs.tf" "Conditional-VM outputs.tf"
+  
+  if [[ -f "modules/conditional-vm/main.tf" ]]; then
+    # Check for conditional patterns
+    if grep -q "count.*=.*var\." modules/conditional-vm/main.tf; then
+      echo "✓ Conditional-VM uses count for conditional resources"
+    else
+      echo "⚠ Conditional-VM should use count for conditional resources"
+    fi
+    
+    # Check for locals with conditionals
+    if grep -q "locals" modules/conditional-vm/main.tf; then
+      echo "✓ Conditional-VM uses locals for conditional logic"
+    fi
+    
+    # Check for environment-based conditionals
+    if grep -q "var.environment.*==" modules/conditional-vm/main.tf; then
+      echo "✓ Conditional-VM has environment-based conditionals"
+    fi
+  fi
+fi
+
+# ============================================================================
+# Section 3: For_Each Patterns
+# ============================================================================
+
+echo ""
+echo "=== Section 3: For_Each Patterns ==="
+
+# Check if for_each is used in modules
+FOR_EACH_COUNT=0
+
+for module_dir in modules/*/; do
+  if [[ -f "${module_dir}main.tf" ]]; then
+    if grep -q "for_each" "${module_dir}main.tf"; then
+      ((FOR_EACH_COUNT++))
+    fi
+  fi
+done
+
+if [[ $FOR_EACH_COUNT -ge 2 ]]; then
+  echo "✓ For_each pattern used in $FOR_EACH_COUNT modules"
+else
+  echo "⚠ For_each should be used in multiple modules (found in $FOR_EACH_COUNT)"
+fi
+
+# Check for map-based for_each
+if grep -r "for_each.*=.*var\." modules/ 2>/dev/null | grep -q "map"; then
+  echo "✓ Map-based for_each pattern found"
+fi
+
+# ============================================================================
+# Section 4: Canary Deployment
+# ============================================================================
+
+echo ""
+echo "=== Section 4: Canary Deployment ==="
+
+check_directory_exists "modules/canary-deployment" "Canary-deployment module"
+
+if [[ -d "modules/canary-deployment" ]]; then
+  check_file_exists "modules/canary-deployment/main.tf" "Canary-deployment main.tf"
+  check_file_exists "modules/canary-deployment/variables.tf" "Canary-deployment variables.tf"
+  check_file_exists "modules/canary-deployment/outputs.tf" "Canary-deployment outputs.tf"
+  
+  if [[ -f "modules/canary-deployment/main.tf" ]]; then
+    # Check for canary-specific variables
+    if [[ -f "modules/canary-deployment/variables.tf" ]]; then
+      if grep -q "canary_percentage" modules/canary-deployment/variables.tf; then
+        echo "✓ Canary module has canary_percentage variable"
+      fi
+      
+      if grep -q "enable_canary" modules/canary-deployment/variables.tf; then
+        echo "✓ Canary module has enable_canary variable"
+      fi
+    fi
+    
+    # Check for stable and canary resources
+    if grep -q "stable" modules/canary-deployment/main.tf && grep -q "canary" modules/canary-deployment/main.tf; then
+      echo "✓ Canary module has both stable and canary resources"
+    fi
+    
+    # Check for count calculation
+    if grep -q "stable_count" modules/canary-deployment/main.tf || grep -q "canary_count" modules/canary-deployment/main.tf; then
+      echo "✓ Canary module calculates instance counts"
+    fi
+  fi
+fi
+
+# ============================================================================
+# Root Module Validation
+# ============================================================================
+
+echo ""
+echo "=== Root Module Validation ==="
+
+if [[ -f "main.tf" ]]; then
+  echo "✓ Root module exists (main.tf)"
+  
+  # Check if any modules are being used
+  if grep -q "module" main.tf; then
+    echo "✓ Root module uses at least one module"
+    
+    # Count how many different modules are used
+    MODULE_COUNT=$(grep -c "^module" main.tf || true)
+    echo "  Found $MODULE_COUNT module blocks"
+  else
+    echo "⚠ Root module should use modules from ./modules/"
+  fi
+  
+  # Check if provider is configured
+  if grep -q "provider.*libvirt" main.tf; then
+    echo "✓ Libvirt provider configured"
+  else
+    echo "⚠ Libvirt provider should be configured"
+  fi
+  
+  # Initialize and validate if possible
+  if [[ ! -d ".terraform" ]]; then
+    echo "Initializing Terraform..."
+    if terraform init -no-color > /tmp/tf-init.log 2>&1; then
+      echo "✓ Terraform initialization successful"
+    else
+      echo "⚠ Terraform initialization had issues (check /tmp/tf-init.log)"
+    fi
+  fi
+  
+  # Validate configuration
+  if terraform validate -no-color > /tmp/tf-validate.log 2>&1; then
+    echo "✓ Terraform configuration is valid"
+  else
+    echo "⚠ Terraform validation had issues"
+    echo "Error log:"
+    cat /tmp/tf-validate.log
+  fi
+else
+  echo "⚠ No root module found (main.tf)"
+  echo "  Tip: Create main.tf to test your modules"
+fi
+
+# ============================================================================
+# Summary
+# ============================================================================
+
+echo ""
+echo "=== Validation Summary ==="
+
+if [[ $ERRORS -eq 0 ]]; then
+  echo "✓ All checks passed! Excellent work!"
+  echo ""
+  echo "You've successfully mastered:"
+  echo "  ✓ Nested module hierarchies (3 layers)"
+  echo "  ✓ Conditional resource creation"
+  echo "  ✓ For_each patterns for multiple resources"
+  echo "  ✓ Canary deployment pattern"
+  echo ""
+  echo "These are enterprise-grade patterns used in production!"
+  echo "Ready to move to the next challenge!"
+  exit 0
+else
+  echo "✗ Found $ERRORS issue(s)"
+  echo ""
+  echo "Review the errors above and:"
+  echo "  1. Ensure all module layers are created"
+  echo "  2. Verify conditional patterns (count, locals)"
+  echo "  3. Check for_each usage in modules"
+  echo "  4. Validate canary deployment logic"
+  echo ""
+  echo "Tip: Review the assignment instructions for guidance"
+  exit 1
+fi
+
+# Made with Bob

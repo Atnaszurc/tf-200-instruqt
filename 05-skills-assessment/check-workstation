@@ -1,0 +1,437 @@
+#!/bin/bash
+set -e
+
+# Challenge 5: Skills Assessment - Check Script
+# Comprehensive validation of learner's solution
+
+echo "Validating Challenge 5: Skills Assessment..."
+echo ""
+
+TOTAL_POINTS=0
+MAX_POINTS=100
+PASSING_SCORE=70
+
+# ============================================================================
+# Helper Functions
+# ============================================================================
+
+award_points() {
+  local points=$1
+  local description=$2
+  TOTAL_POINTS=$((TOTAL_POINTS + points))
+  echo "✅ +$points points: $description"
+}
+
+deduct_points() {
+  local description=$1
+  echo "❌ 0 points: $description"
+}
+
+check_file_exists() {
+  local file=$1
+  if [ -f "$file" ]; then
+    return 0
+  else
+    return 1
+  fi
+}
+
+check_dir_exists() {
+  local dir=$1
+  if [ -d "$dir" ]; then
+    return 0
+  else
+    return 1
+  fi
+}
+
+# ============================================================================
+# Category 1: Module Structure (25 points)
+# ============================================================================
+echo "=== Category 1: Module Structure (25 points) ==="
+echo ""
+
+cd /root/terraform
+
+# Check frontend module (6 points)
+if check_dir_exists "modules/frontend"; then
+  award_points 2 "Frontend module directory exists"
+  
+  if check_file_exists "modules/frontend/main.tf" && \
+     check_file_exists "modules/frontend/variables.tf" && \
+     check_file_exists "modules/frontend/outputs.tf"; then
+    award_points 3 "Frontend module has required files"
+  else
+    deduct_points "Frontend module missing required files"
+  fi
+  
+  if check_file_exists "modules/frontend/README.md"; then
+    award_points 1 "Frontend module has README"
+  else
+    deduct_points "Frontend module missing README"
+  fi
+else
+  deduct_points "Frontend module directory not found"
+fi
+
+# Check application module (6 points)
+if check_dir_exists "modules/application"; then
+  award_points 2 "Application module directory exists"
+  
+  if check_file_exists "modules/application/main.tf" && \
+     check_file_exists "modules/application/variables.tf" && \
+     check_file_exists "modules/application/outputs.tf"; then
+    award_points 3 "Application module has required files"
+  else
+    deduct_points "Application module missing required files"
+  fi
+  
+  if check_file_exists "modules/application/README.md"; then
+    award_points 1 "Application module has README"
+  else
+    deduct_points "Application module missing README"
+  fi
+else
+  deduct_points "Application module directory not found"
+fi
+
+# Check database module (6 points)
+if check_dir_exists "modules/database"; then
+  award_points 2 "Database module directory exists"
+  
+  if check_file_exists "modules/database/main.tf" && \
+     check_file_exists "modules/database/variables.tf" && \
+     check_file_exists "modules/database/outputs.tf"; then
+    award_points 3 "Database module has required files"
+  else
+    deduct_points "Database module missing required files"
+  fi
+  
+  if check_file_exists "modules/database/README.md"; then
+    award_points 1 "Database module has README"
+  else
+    deduct_points "Database module missing README"
+  fi
+else
+  deduct_points "Database module directory not found"
+fi
+
+# Check app-stack module (7 points)
+if check_dir_exists "modules/app-stack"; then
+  award_points 2 "App-stack module directory exists"
+  
+  if check_file_exists "modules/app-stack/main.tf" && \
+     check_file_exists "modules/app-stack/variables.tf" && \
+     check_file_exists "modules/app-stack/outputs.tf"; then
+    award_points 4 "App-stack module has required files"
+  else
+    deduct_points "App-stack module missing required files"
+  fi
+  
+  if check_file_exists "modules/app-stack/README.md"; then
+    award_points 1 "App-stack module has README"
+  else
+    deduct_points "App-stack module missing README"
+  fi
+else
+  deduct_points "App-stack module directory not found"
+fi
+
+echo ""
+
+# ============================================================================
+# Category 2: YAML Configuration (20 points)
+# ============================================================================
+echo "=== Category 2: YAML Configuration (20 points) ==="
+echo ""
+
+# Check YAML files exist (6 points)
+YAML_FILES_EXIST=true
+for env in dev staging prod; do
+  if check_file_exists "config/$env.yaml"; then
+    award_points 2 "Configuration file exists: $env.yaml"
+  else
+    deduct_points "Configuration file missing: $env.yaml"
+    YAML_FILES_EXIST=false
+  fi
+done
+
+# Check for yamldecode usage (8 points)
+if [ "$YAML_FILES_EXIST" = true ]; then
+  if grep -r "yamldecode" main.tf modules/ 2>/dev/null | grep -q "yamldecode"; then
+    award_points 8 "YAML configuration parsed with yamldecode()"
+  else
+    deduct_points "yamldecode() not found in configuration"
+  fi
+fi
+
+# Check for environment-specific settings (6 points)
+if [ -f "main.tf" ]; then
+  if grep -q "environment" main.tf || grep -q "var.environment" main.tf; then
+    award_points 3 "Environment variable used"
+  else
+    deduct_points "Environment variable not found"
+  fi
+  
+  if grep -r "server_count\|monitoring_enabled\|caching_enabled\|backup_enabled" modules/ 2>/dev/null | grep -q "var."; then
+    award_points 3 "Environment-specific settings implemented"
+  else
+    deduct_points "Environment-specific settings not found"
+  fi
+fi
+
+echo ""
+
+# ============================================================================
+# Category 3: Import & Migration (15 points)
+# ============================================================================
+echo "=== Category 3: Import & Migration (15 points) ==="
+echo ""
+
+# Check for import blocks (10 points)
+if grep -r "^import {" . 2>/dev/null | grep -q "import {"; then
+  award_points 5 "Import blocks found in configuration"
+  
+  # Check for legacy network import
+  if grep -r "legacy-app-network" . 2>/dev/null | grep -q "import"; then
+    award_points 3 "Legacy network import configured"
+  else
+    deduct_points "Legacy network import not found"
+  fi
+  
+  # Check for legacy VM import
+  if grep -r "legacy-app-server" . 2>/dev/null | grep -q "import"; then
+    award_points 2 "Legacy VM import configured"
+  else
+    deduct_points "Legacy VM import not found"
+  fi
+else
+  deduct_points "No import blocks found (required for legacy resources)"
+fi
+
+# Check if resources are in state (5 points)
+if [ -f "terraform.tfstate" ]; then
+  if terraform state list 2>/dev/null | grep -q "legacy"; then
+    award_points 5 "Legacy resources imported into state"
+  else
+    deduct_points "Legacy resources not in state"
+  fi
+else
+  deduct_points "No state file found (run terraform apply)"
+fi
+
+echo ""
+
+# ============================================================================
+# Category 4: Advanced Patterns (20 points)
+# ============================================================================
+echo "=== Category 4: Advanced Patterns (20 points) ==="
+echo ""
+
+# Check for canary deployment pattern (8 points)
+if grep -r "canary\|percentage\|gradual" modules/application/ 2>/dev/null | grep -q -i "canary\|percentage"; then
+  award_points 8 "Canary deployment pattern implemented"
+else
+  deduct_points "Canary deployment pattern not found"
+fi
+
+# Check for conditional resources (8 points)
+if grep -r "count.*=.*var\|for_each.*=.*var" modules/ 2>/dev/null | grep -q "count\|for_each"; then
+  award_points 4 "Conditional resource creation found"
+  
+  if grep -r "monitoring_enabled\|caching_enabled\|backup_enabled\|replication_enabled" modules/ 2>/dev/null | grep -q "enabled"; then
+    award_points 4 "Environment-based conditionals implemented"
+  else
+    deduct_points "Environment-based conditionals not found"
+  fi
+else
+  deduct_points "Conditional resource creation not found"
+fi
+
+# Check for module composition (4 points)
+if check_file_exists "modules/app-stack/main.tf"; then
+  if grep -q "module.*frontend\|module.*application\|module.*database" modules/app-stack/main.tf 2>/dev/null; then
+    award_points 4 "Module composition in app-stack"
+  else
+    deduct_points "Module composition not found in app-stack"
+  fi
+fi
+
+echo ""
+
+# ============================================================================
+# Category 5: Code Quality (20 points)
+# ============================================================================
+echo "=== Category 5: Code Quality (20 points) ==="
+echo ""
+
+# Check for variable descriptions (5 points)
+VARS_WITH_DESC=0
+TOTAL_VARS=0
+
+for file in modules/*/variables.tf; do
+  if [ -f "$file" ]; then
+    VARS=$(grep -c "^variable" "$file" 2>/dev/null || echo 0)
+    DESCS=$(grep -c "description.*=" "$file" 2>/dev/null || echo 0)
+    TOTAL_VARS=$((TOTAL_VARS + VARS))
+    VARS_WITH_DESC=$((VARS_WITH_DESC + DESCS))
+  fi
+done
+
+if [ $TOTAL_VARS -gt 0 ]; then
+  PERCENT=$((VARS_WITH_DESC * 100 / TOTAL_VARS))
+  if [ $PERCENT -ge 80 ]; then
+    award_points 5 "Variables have descriptions ($PERCENT%)"
+  elif [ $PERCENT -ge 50 ]; then
+    award_points 3 "Some variables have descriptions ($PERCENT%)"
+  else
+    deduct_points "Most variables lack descriptions ($PERCENT%)"
+  fi
+else
+  deduct_points "No variables found"
+fi
+
+# Check for outputs (5 points)
+OUTPUTS_FOUND=0
+for file in modules/*/outputs.tf; do
+  if [ -f "$file" ]; then
+    OUTPUTS=$(grep -c "^output" "$file" 2>/dev/null || echo 0)
+    OUTPUTS_FOUND=$((OUTPUTS_FOUND + OUTPUTS))
+  fi
+done
+
+if [ $OUTPUTS_FOUND -ge 8 ]; then
+  award_points 5 "Comprehensive outputs defined ($OUTPUTS_FOUND outputs)"
+elif [ $OUTPUTS_FOUND -ge 4 ]; then
+  award_points 3 "Some outputs defined ($OUTPUTS_FOUND outputs)"
+else
+  deduct_points "Insufficient outputs ($OUTPUTS_FOUND outputs)"
+fi
+
+# Check for naming conventions (5 points)
+if grep -r "^resource\|^module\|^variable\|^output" modules/ main.tf 2>/dev/null | \
+   grep -v -E "[A-Z]|[^a-z0-9_]" | wc -l | grep -q "[0-9]"; then
+  award_points 5 "Consistent naming conventions (snake_case)"
+else
+  deduct_points "Inconsistent naming conventions"
+fi
+
+# Check for comments (5 points)
+COMMENT_COUNT=$(grep -r "^#" modules/ main.tf 2>/dev/null | wc -l)
+if [ $COMMENT_COUNT -ge 20 ]; then
+  award_points 5 "Well-commented code ($COMMENT_COUNT comments)"
+elif [ $COMMENT_COUNT -ge 10 ]; then
+  award_points 3 "Some comments present ($COMMENT_COUNT comments)"
+else
+  deduct_points "Insufficient comments ($COMMENT_COUNT comments)"
+fi
+
+echo ""
+
+# ============================================================================
+# Bonus Checks (informational, no points)
+# ============================================================================
+echo "=== Bonus Checks (informational) ==="
+echo ""
+
+# Check if Terraform validates
+if terraform validate > /dev/null 2>&1; then
+  echo "✅ Terraform configuration is valid"
+else
+  echo "⚠️  Terraform validation failed (check syntax)"
+fi
+
+# Check if plan works
+if terraform plan -detailed-exitcode > /dev/null 2>&1; then
+  echo "✅ Terraform plan succeeds with no changes"
+elif terraform plan > /dev/null 2>&1; then
+  echo "⚠️  Terraform plan succeeds but shows changes"
+else
+  echo "⚠️  Terraform plan fails (check configuration)"
+fi
+
+# Check for test files
+if find modules/ -name "*.tftest.hcl" 2>/dev/null | grep -q ".tftest.hcl"; then
+  echo "🌟 Bonus: Test files found!"
+fi
+
+# Check for documentation
+if [ -f "README.md" ]; then
+  echo "🌟 Bonus: Root README.md exists!"
+fi
+
+echo ""
+
+# ============================================================================
+# Final Score Calculation
+# ============================================================================
+echo "============================================"
+echo "Final Assessment Results"
+echo "============================================"
+echo ""
+
+PERCENTAGE=$((TOTAL_POINTS * 100 / MAX_POINTS))
+
+echo "Score Breakdown:"
+echo "  Module Structure:     /25 points"
+echo "  YAML Configuration:   /20 points"
+echo "  Import & Migration:   /15 points"
+echo "  Advanced Patterns:    /20 points"
+echo "  Code Quality:         /20 points"
+echo "  ─────────────────────────────"
+echo "  Total Score:          $TOTAL_POINTS/$MAX_POINTS points ($PERCENTAGE%)"
+echo ""
+
+if [ $TOTAL_POINTS -ge $PASSING_SCORE ]; then
+  echo "🎉 CONGRATULATIONS! You passed the assessment!"
+  echo ""
+  echo "You have successfully demonstrated mastery of:"
+  echo "  ✅ Module design and composition"
+  echo "  ✅ YAML-driven configuration"
+  echo "  ✅ Import and migration strategies"
+  echo "  ✅ Advanced Terraform patterns"
+  echo "  ✅ Infrastructure as Code best practices"
+  echo ""
+  echo "You're ready for TF-300: Testing, Validation & Advanced Features!"
+  echo ""
+  exit 0
+else
+  NEEDED=$((PASSING_SCORE - TOTAL_POINTS))
+  echo "❌ Assessment not yet complete"
+  echo ""
+  echo "You need $NEEDED more points to pass (minimum: $PASSING_SCORE points)"
+  echo ""
+  echo "Areas to improve:"
+  
+  # Provide specific feedback
+  if [ ! -d "modules/app-stack" ]; then
+    echo "  - Create the app-stack composition module"
+  fi
+  
+  if ! grep -r "yamldecode" . 2>/dev/null | grep -q "yamldecode"; then
+    echo "  - Implement YAML-driven configuration with yamldecode()"
+  fi
+  
+  if ! grep -r "^import {" . 2>/dev/null | grep -q "import {"; then
+    echo "  - Add import blocks for legacy resources"
+  fi
+  
+  if ! grep -r "canary" modules/ 2>/dev/null | grep -q -i "canary"; then
+    echo "  - Implement canary deployment pattern"
+  fi
+  
+  if [ $VARS_WITH_DESC -lt $((TOTAL_VARS * 80 / 100)) ]; then
+    echo "  - Add descriptions to variables"
+  fi
+  
+  echo ""
+  echo "Tips:"
+  echo "  - Review the assignment requirements carefully"
+  echo "  - Check previous challenges for examples"
+  echo "  - Use helper scripts: ./validate-structure.sh"
+  echo "  - Test with: ./test-environment.sh dev"
+  echo ""
+  exit 1
+fi
+
+# Made with Bob

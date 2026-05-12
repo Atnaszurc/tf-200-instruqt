@@ -1,0 +1,877 @@
+#!/bin/bash
+set -euxo pipefail
+
+# Challenge 2 Setup: Advanced Module Patterns
+# Pre-populate module examples for nested modules, conditionals, for_each, and canary deployments
+
+echo "=== Challenge 2: Advanced Module Patterns Setup ==="
+
+# Navigate to workspace
+cd /root/terraform-workspace
+
+# Clean any existing content
+rm -rf *
+
+# Create directory structure
+mkdir -p modules/{network,storage,compute,app-stack,conditional-vm,canary-deployment}
+
+echo "✓ Created module directories"
+
+# ============================================================================
+# Module 1: Network (Layer 1 - Bottom)
+# ============================================================================
+
+cat > modules/network/variables.tf << 'EOF'
+variable "network_name" {
+  description = "Name of the network"
+  type        = string
+}
+
+variable "network_mode" {
+  description = "Network mode (nat, route, bridge)"
+  type        = string
+  default     = "nat"
+}
+
+variable "addresses" {
+  description = "Network address ranges"
+  type        = list(string)
+  default     = ["192.168.200.0/24"]
+}
+
+variable "domain" {
+  description = "DNS domain"
+  type        = string
+  default     = "local"
+}
+EOF
+
+cat > modules/network/main.tf << 'EOF'
+terraform {
+  required_version = ">= 1.14"
+  required_providers {
+    libvirt = {
+      source  = "dmacvicar/libvirt"
+      version = "~> 0.8"
+    }
+  }
+}
+
+resource "libvirt_network" "this" {
+  name      = var.network_name
+  mode      = var.network_mode
+  domain    = var.domain
+  addresses = var.addresses
+  autostart = true
+  
+  dhcp {
+    enabled = true
+  }
+}
+EOF
+
+cat > modules/network/outputs.tf << 'EOF'
+output "id" {
+  description = "Network ID"
+  value       = libvirt_network.this.id
+}
+
+output "name" {
+  description = "Network name"
+  value       = libvirt_network.this.name
+}
+
+output "bridge" {
+  description = "Bridge interface"
+  value       = libvirt_network.this.bridge
+}
+EOF
+
+echo "✓ Created network module"
+
+# ============================================================================
+# Module 2: Storage (Layer 2 - Middle)
+# ============================================================================
+
+cat > modules/storage/variables.tf << 'EOF'
+variable "pool_name" {
+  description = "Name of the storage pool"
+  type        = string
+}
+
+variable "pool_type" {
+  description = "Type of storage pool"
+  type        = string
+  default     = "dir"
+}
+
+variable "pool_path" {
+  description = "Path for directory-based pool"
+  type        = string
+  default     = "/var/lib/libvirt/images"
+}
+
+variable "volumes" {
+  description = "Map of volumes to create"
+  type = map(object({
+    size_gb = number
+    format  = string
+  }))
+  default = {}
+}
+EOF
+
+cat > modules/storage/main.tf << 'EOF'
+terraform {
+  required_version = ">= 1.14"
+  required_providers {
+    libvirt = {
+      source  = "dmacvicar/libvirt"
+      version = "~> 0.8"
+    }
+  }
+}
+
+resource "libvirt_pool" "this" {
+  name = var.pool_name
+  type = var.pool_type
+  path = var.pool_path
+}
+
+resource "libvirt_volume" "volumes" {
+  for_each = var.volumes
+  
+  name   = "${each.key}.${each.value.format}"
+  pool   = libvirt_pool.this.name
+  format = each.value.format
+  size   = each.value.size_gb * 1073741824  # Convert GB to bytes
+}
+EOF
+
+cat > modules/storage/outputs.tf << 'EOF'
+output "pool_id" {
+  description = "Storage pool ID"
+  value       = libvirt_pool.this.id
+}
+
+output "pool_name" {
+  description = "Storage pool name"
+  value       = libvirt_pool.this.name
+}
+
+output "volume_ids" {
+  description = "Map of volume IDs"
+  value       = { for k, v in libvirt_volume.volumes : k => v.id }
+}
+EOF
+
+echo "✓ Created storage module"
+
+# ============================================================================
+# Module 3: Compute (Layer 2 - Middle)
+# ============================================================================
+
+cat > modules/compute/variables.tf << 'EOF'
+variable "vms" {
+  description = "Map of VMs to create"
+  type = map(object({
+    memory_mb  = number
+    vcpu_count = number
+    volume_id  = string
+  }))
+}
+
+variable "network_id" {
+  description = "Network ID to attach VMs to"
+  type        = string
+}
+
+variable "autostart" {
+  description = "Auto-start VMs"
+  type        = bool
+  default     = false
+}
+EOF
+
+cat > modules/compute/main.tf << 'EOF'
+terraform {
+  required_version = ">= 1.14"
+  required_providers {
+    libvirt = {
+      source  = "dmacvicar/libvirt"
+      version = "~> 0.8"
+    }
+  }
+}
+
+resource "libvirt_domain" "vms" {
+  for_each = var.vms
+  
+  name      = each.key
+  memory    = each.value.memory_mb
+  vcpu      = each.value.vcpu_count
+  autostart = var.autostart
+  
+  disk {
+    volume_id = each.value.volume_id
+  }
+  
+  network_interface {
+    network_id = var.network_id
+  }
+  
+  console {
+    type        = "pty"
+    target_type = "serial"
+    target_port = "0"
+  }
+}
+EOF
+
+cat > modules/compute/outputs.tf << 'EOF'
+output "vm_ids" {
+  description = "Map of VM IDs"
+  value       = { for k, v in libvirt_domain.vms : k => v.id }
+}
+
+output "vm_names" {
+  description = "Map of VM names"
+  value       = { for k, v in libvirt_domain.vms : k => v.name }
+}
+EOF
+
+echo "✓ Created compute module"
+
+# ============================================================================
+# Module 4: App-Stack (Layer 3 - Top)
+# ============================================================================
+
+cat > modules/app-stack/variables.tf << 'EOF'
+variable "app_name" {
+  description = "Application name"
+  type        = string
+}
+
+variable "environment" {
+  description = "Environment (dev, staging, prod)"
+  type        = string
+  
+  validation {
+    condition     = contains(["dev", "staging", "prod"], var.environment)
+    error_message = "environment must be dev, staging, or prod"
+  }
+}
+
+variable "vms" {
+  description = "Map of VMs to create"
+  type = map(object({
+    memory_mb  = number
+    vcpu_count = number
+    disk_gb    = number
+  }))
+}
+EOF
+
+cat > modules/app-stack/main.tf << 'EOF'
+terraform {
+  required_version = ">= 1.14"
+  required_providers {
+    libvirt = {
+      source  = "dmacvicar/libvirt"
+      version = "~> 0.8"
+    }
+  }
+}
+
+# Layer 1: Network
+module "network" {
+  source = "../network"
+  
+  network_name = "${var.app_name}-${var.environment}-network"
+  network_mode = "nat"
+  addresses    = ["192.168.200.0/24"]
+  domain       = "${var.app_name}.${var.environment}.local"
+}
+
+# Layer 2: Storage
+module "storage" {
+  source = "../storage"
+  
+  pool_name = "${var.app_name}-${var.environment}-pool"
+  pool_type = "dir"
+  pool_path = "/var/lib/libvirt/images/${var.app_name}-${var.environment}"
+  
+  volumes = {
+    for vm_name, vm_config in var.vms :
+    vm_name => {
+      size_gb = vm_config.disk_gb
+      format  = "qcow2"
+    }
+  }
+}
+
+# Layer 3: Compute
+module "compute" {
+  source = "../compute"
+  
+  network_id = module.network.id
+  autostart  = var.environment == "prod"
+  
+  vms = {
+    for vm_name, vm_config in var.vms :
+    "${var.app_name}-${var.environment}-${vm_name}" => {
+      memory_mb  = vm_config.memory_mb
+      vcpu_count = vm_config.vcpu_count
+      volume_id  = module.storage.volume_ids[vm_name]
+    }
+  }
+  
+  depends_on = [module.storage]
+}
+EOF
+
+cat > modules/app-stack/outputs.tf << 'EOF'
+output "network_info" {
+  description = "Network information"
+  value = {
+    id     = module.network.id
+    name   = module.network.name
+    bridge = module.network.bridge
+  }
+}
+
+output "storage_info" {
+  description = "Storage information"
+  value = {
+    pool_id   = module.storage.pool_id
+    pool_name = module.storage.pool_name
+  }
+}
+
+output "vm_info" {
+  description = "VM information"
+  value = {
+    ids   = module.compute.vm_ids
+    names = module.compute.vm_names
+  }
+}
+EOF
+
+echo "✓ Created app-stack module"
+
+# ============================================================================
+# Module 5: Conditional VM
+# ============================================================================
+
+cat > modules/conditional-vm/variables.tf << 'EOF'
+variable "app_name" {
+  description = "Application name"
+  type        = string
+}
+
+variable "environment" {
+  description = "Environment (dev, staging, prod)"
+  type        = string
+}
+
+variable "create_network" {
+  description = "Create a new network (false = use existing)"
+  type        = bool
+  default     = true
+}
+
+variable "existing_network_id" {
+  description = "ID of existing network (if create_network = false)"
+  type        = string
+  default     = ""
+}
+
+variable "vms" {
+  description = "Map of VMs to create"
+  type = map(object({
+    memory_mb  = number
+    vcpu_count = number
+  }))
+}
+
+variable "enable_monitoring" {
+  description = "Enable monitoring resources"
+  type        = bool
+  default     = false
+}
+
+variable "enable_backup" {
+  description = "Enable backup configuration"
+  type        = bool
+  default     = false
+}
+EOF
+
+cat > modules/conditional-vm/main.tf << 'EOF'
+terraform {
+  required_version = ">= 1.14"
+  required_providers {
+    libvirt = {
+      source  = "dmacvicar/libvirt"
+      version = "~> 0.8"
+    }
+    local = {
+      source  = "hashicorp/local"
+      version = "~> 2.7"
+    }
+  }
+}
+
+locals {
+  # Use created or existing network
+  network_id = var.create_network ? libvirt_network.this[0].id : var.existing_network_id
+  
+  # Auto-start only in production
+  autostart = var.environment == "prod"
+  
+  # Monitoring enabled in staging and prod
+  monitoring_enabled = var.enable_monitoring && contains(["staging", "prod"], var.environment)
+  
+  # Backup enabled only in prod
+  backup_enabled = var.enable_backup && var.environment == "prod"
+}
+
+# Conditional network creation
+resource "libvirt_network" "this" {
+  count = var.create_network ? 1 : 0
+  
+  name      = "${var.app_name}-${var.environment}-network"
+  mode      = "nat"
+  addresses = ["192.168.210.0/24"]
+  autostart = true
+  
+  dhcp {
+    enabled = true
+  }
+}
+
+# Create volumes for VMs
+resource "libvirt_volume" "vm_disks" {
+  for_each = var.vms
+  
+  name   = "${var.app_name}-${var.environment}-${each.key}.qcow2"
+  pool   = "default"
+  format = "qcow2"
+  size   = 1073741824  # 1GB
+}
+
+# Create VMs
+resource "libvirt_domain" "vms" {
+  for_each = var.vms
+  
+  name      = "${var.app_name}-${var.environment}-${each.key}"
+  memory    = each.value.memory_mb
+  vcpu      = each.value.vcpu_count
+  autostart = local.autostart
+  
+  disk {
+    volume_id = libvirt_volume.vm_disks[each.key].id
+  }
+  
+  network_interface {
+    network_id = local.network_id
+  }
+  
+  console {
+    type        = "pty"
+    target_type = "serial"
+    target_port = "0"
+  }
+}
+
+# Conditional monitoring configuration
+resource "local_file" "monitoring_config" {
+  count = local.monitoring_enabled ? 1 : 0
+  
+  filename = "/tmp/${var.app_name}-${var.environment}-monitoring.conf"
+  content  = <<-EOT
+    # Monitoring Configuration
+    # Environment: ${var.environment}
+    # VMs: ${join(", ", keys(var.vms))}
+    
+    monitoring_enabled = true
+    check_interval     = ${var.environment == "prod" ? "30s" : "60s"}
+    alert_threshold    = ${var.environment == "prod" ? "90" : "95"}
+  EOT
+}
+
+# Conditional backup configuration
+resource "local_file" "backup_config" {
+  count = local.backup_enabled ? 1 : 0
+  
+  filename = "/tmp/${var.app_name}-${var.environment}-backup.conf"
+  content  = <<-EOT
+    # Backup Configuration
+    # Environment: ${var.environment}
+    
+    backup_enabled  = true
+    backup_schedule = "0 2 * * *"  # Daily at 2 AM
+    retention_days  = 30
+    vms_to_backup   = [${join(", ", [for k, v in var.vms : "\"${k}\""])}]
+  EOT
+}
+EOF
+
+cat > modules/conditional-vm/outputs.tf << 'EOF'
+output "network_id" {
+  description = "Network ID (created or existing)"
+  value       = local.network_id
+}
+
+output "vm_ids" {
+  description = "Map of VM IDs"
+  value       = { for k, v in libvirt_domain.vms : k => v.id }
+}
+
+output "monitoring_enabled" {
+  description = "Whether monitoring is enabled"
+  value       = local.monitoring_enabled
+}
+
+output "backup_enabled" {
+  description = "Whether backup is enabled"
+  value       = local.backup_enabled
+}
+
+output "autostart_enabled" {
+  description = "Whether VMs auto-start"
+  value       = local.autostart
+}
+EOF
+
+echo "✓ Created conditional-vm module"
+
+# ============================================================================
+# Module 6: Canary Deployment
+# ============================================================================
+
+cat > modules/canary-deployment/variables.tf << 'EOF'
+variable "app_name" {
+  description = "Application name"
+  type        = string
+}
+
+variable "total_instances" {
+  description = "Total number of instances"
+  type        = number
+  
+  validation {
+    condition     = var.total_instances >= 1 && var.total_instances <= 10
+    error_message = "total_instances must be between 1 and 10"
+  }
+}
+
+variable "enable_canary" {
+  description = "Enable canary deployment"
+  type        = bool
+  default     = false
+}
+
+variable "canary_percentage" {
+  description = "Percentage of instances for canary (0-100)"
+  type        = number
+  default     = 0
+  
+  validation {
+    condition     = var.canary_percentage >= 0 && var.canary_percentage <= 100
+    error_message = "canary_percentage must be between 0 and 100"
+  }
+}
+
+variable "stable_version" {
+  description = "Stable version identifier"
+  type        = string
+  default     = "v1.0.0"
+}
+
+variable "canary_version" {
+  description = "Canary version identifier"
+  type        = string
+  default     = "v1.1.0"
+}
+
+variable "network_id" {
+  description = "Network ID for VMs"
+  type        = string
+}
+
+variable "memory_mb" {
+  description = "Memory per instance in MB"
+  type        = number
+  default     = 512
+}
+
+variable "vcpu_count" {
+  description = "vCPU count per instance"
+  type        = number
+  default     = 1
+}
+EOF
+
+cat > modules/canary-deployment/main.tf << 'EOF'
+terraform {
+  required_version = ">= 1.14"
+  required_providers {
+    libvirt = {
+      source  = "dmacvicar/libvirt"
+      version = "~> 0.8"
+    }
+    local = {
+      source  = "hashicorp/local"
+      version = "~> 2.7"
+    }
+  }
+}
+
+locals {
+  # Calculate instance counts
+  stable_count = var.enable_canary ? 
+    floor(var.total_instances * (1 - var.canary_percentage / 100)) : 
+    var.total_instances
+  
+  canary_count = var.enable_canary ? 
+    ceil(var.total_instances * (var.canary_percentage / 100)) : 
+    0
+}
+
+# Stable version volumes
+resource "libvirt_volume" "stable" {
+  count = local.stable_count
+  
+  name   = "${var.app_name}-stable-${count.index + 1}.qcow2"
+  pool   = "default"
+  format = "qcow2"
+  size   = 1073741824  # 1GB
+}
+
+# Canary version volumes
+resource "libvirt_volume" "canary" {
+  count = local.canary_count
+  
+  name   = "${var.app_name}-canary-${count.index + 1}.qcow2"
+  pool   = "default"
+  format = "qcow2"
+  size   = 1073741824  # 1GB
+}
+
+# Stable version instances
+resource "libvirt_domain" "stable" {
+  count = local.stable_count
+  
+  name      = "${var.app_name}-stable-${count.index + 1}"
+  memory    = var.memory_mb
+  vcpu      = var.vcpu_count
+  autostart = false
+  
+  disk {
+    volume_id = libvirt_volume.stable[count.index].id
+  }
+  
+  network_interface {
+    network_id = var.network_id
+  }
+  
+  console {
+    type        = "pty"
+    target_type = "serial"
+    target_port = "0"
+  }
+}
+
+# Canary version instances
+resource "libvirt_domain" "canary" {
+  count = local.canary_count
+  
+  name      = "${var.app_name}-canary-${count.index + 1}"
+  memory    = var.memory_mb
+  vcpu      = var.vcpu_count
+  autostart = false
+  
+  disk {
+    volume_id = libvirt_volume.canary[count.index].id
+  }
+  
+  network_interface {
+    network_id = var.network_id
+  }
+  
+  console {
+    type        = "pty"
+    target_type = "serial"
+    target_port = "0"
+  }
+}
+
+# Deployment status file
+resource "local_file" "deployment_status" {
+  filename = "/tmp/${var.app_name}-deployment-status.json"
+  content = jsonencode({
+    app_name          = var.app_name
+    total_instances   = var.total_instances
+    stable_count      = local.stable_count
+    canary_count      = local.canary_count
+    stable_version    = var.stable_version
+    canary_version    = var.canary_version
+    canary_percentage = var.canary_percentage
+    canary_enabled    = var.enable_canary
+    timestamp         = timestamp()
+  })
+}
+EOF
+
+cat > modules/canary-deployment/outputs.tf << 'EOF'
+output "deployment_summary" {
+  description = "Deployment summary"
+  value = {
+    total_instances   = var.total_instances
+    stable_count      = local.stable_count
+    canary_count      = local.canary_count
+    stable_version    = var.stable_version
+    canary_version    = var.canary_version
+    canary_percentage = var.canary_percentage
+  }
+}
+
+output "stable_vm_ids" {
+  description = "Stable version VM IDs"
+  value       = [for vm in libvirt_domain.stable : vm.id]
+}
+
+output "canary_vm_ids" {
+  description = "Canary version VM IDs"
+  value       = [for vm in libvirt_domain.canary : vm.id]
+}
+
+output "stable_vm_names" {
+  description = "Stable version VM names"
+  value       = [for vm in libvirt_domain.stable : vm.name]
+}
+
+output "canary_vm_names" {
+  description = "Canary version VM names"
+  value       = [for vm in libvirt_domain.canary : vm.name]
+}
+EOF
+
+echo "✓ Created canary-deployment module"
+
+# ============================================================================
+# Create example root module
+# ============================================================================
+
+cat > main.tf.example << 'EOF'
+# Example root module demonstrating all patterns
+# Rename to main.tf to use
+
+terraform {
+  required_version = ">= 1.14"
+  required_providers {
+    libvirt = {
+      source  = "dmacvicar/libvirt"
+      version = "~> 0.8"
+    }
+  }
+}
+
+provider "libvirt" {
+  uri = "qemu:///system"
+}
+
+# Example 1: Nested Module (App Stack)
+module "my_app" {
+  source = "./modules/app-stack"
+  
+  app_name    = "webapp"
+  environment = "dev"
+  
+  vms = {
+    web = { memory_mb = 512, vcpu_count = 1, disk_gb = 1 }
+    api = { memory_mb = 512, vcpu_count = 1, disk_gb = 1 }
+    db  = { memory_mb = 1024, vcpu_count = 2, disk_gb = 2 }
+  }
+}
+
+# Example 2: Conditional Resources
+module "dev_app" {
+  source = "./modules/conditional-vm"
+  
+  app_name          = "myapp"
+  environment       = "dev"
+  create_network    = true
+  enable_monitoring = false
+  enable_backup     = false
+  
+  vms = {
+    web = { memory_mb = 512, vcpu_count = 1 }
+  }
+}
+
+# Example 3: Canary Deployment
+module "canary_network" {
+  source = "./modules/network"
+  
+  network_name = "canary-network"
+  addresses    = ["192.168.220.0/24"]
+}
+
+module "app_canary" {
+  source = "./modules/canary-deployment"
+  
+  app_name          = "myapp"
+  total_instances   = 5
+  enable_canary     = false  # Start with 100% stable
+  canary_percentage = 0
+  stable_version    = "v1.0.0"
+  canary_version    = "v1.1.0"
+  network_id        = module.canary_network.id
+}
+EOF
+
+cat > README.md << 'EOF'
+# Challenge 2: Advanced Module Patterns
+
+This workspace demonstrates enterprise-grade module patterns.
+
+## Modules
+
+### Nested Modules
+- **network**: Creates Libvirt networks
+- **storage**: Creates storage pools and volumes
+- **compute**: Creates VMs
+- **app-stack**: Composes all three layers
+
+### Advanced Patterns
+- **conditional-vm**: Conditional resource creation
+- **canary-deployment**: Gradual rollout pattern
+
+## Getting Started
+
+1. Review the module structure
+2. Follow the challenge instructions
+3. Test each pattern
+4. Understand the benefits
+
+Happy learning! 🚀
+EOF
+
+echo "✓ Setup complete!"
+echo ""
+echo "Workspace ready at: /root/terraform-workspace"
+echo "Modules created:"
+echo "  - modules/network (Layer 1)"
+echo "  - modules/storage (Layer 2)"
+echo "  - modules/compute (Layer 2)"
+echo "  - modules/app-stack (Layer 3 - Nested)"
+echo "  - modules/conditional-vm (Conditional resources)"
+echo "  - modules/canary-deployment (Canary pattern)"
+echo ""
+echo "Follow the challenge instructions to master advanced patterns!"
+
+exit 0
+
+# Made with Bob

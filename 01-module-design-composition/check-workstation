@@ -1,0 +1,275 @@
+#!/bin/bash
+set -euo pipefail
+
+# Challenge 1 Check: Module Design & Composition
+# Validates learner progress through the challenge
+
+echo "=== Validating Challenge 1: Module Design & Composition ==="
+
+cd /root/terraform-workspace
+
+ERRORS=0
+
+# ============================================================================
+# Helper Functions
+# ============================================================================
+
+check_file_exists() {
+  local file=$1
+  local description=$2
+  
+  if [[ -f "$file" ]]; then
+    echo "✓ $description exists"
+    return 0
+  else
+    echo "✗ $description missing: $file"
+    ((ERRORS++))
+    return 1
+  fi
+}
+
+check_directory_exists() {
+  local dir=$1
+  local description=$2
+  
+  if [[ -d "$dir" ]]; then
+    echo "✓ $description exists"
+    return 0
+  else
+    echo "✗ $description missing: $dir"
+    ((ERRORS++))
+    return 1
+  fi
+}
+
+check_file_contains() {
+  local file=$1
+  local pattern=$2
+  local description=$3
+  
+  if [[ ! -f "$file" ]]; then
+    echo "✗ File not found: $file"
+    ((ERRORS++))
+    return 1
+  fi
+  
+  if grep -q "$pattern" "$file"; then
+    echo "✓ $description"
+    return 0
+  else
+    echo "✗ $description - pattern not found: $pattern"
+    ((ERRORS++))
+    return 1
+  fi
+}
+
+# ============================================================================
+# Section 1: Module Fundamentals
+# ============================================================================
+
+echo ""
+echo "=== Section 1: Module Fundamentals ==="
+
+# Check that modules directory exists
+check_directory_exists "modules" "Modules directory"
+
+# Check app-config module structure
+check_directory_exists "modules/app-config" "app-config module directory"
+check_file_exists "modules/app-config/main.tf" "app-config main.tf"
+check_file_exists "modules/app-config/variables.tf" "app-config variables.tf"
+check_file_exists "modules/app-config/outputs.tf" "app-config outputs.tf"
+
+# Verify app-config module has required providers
+if [[ -f "modules/app-config/main.tf" ]]; then
+  check_file_contains "modules/app-config/main.tf" "required_providers" "app-config declares required providers"
+  check_file_contains "modules/app-config/main.tf" "local" "app-config uses local provider"
+fi
+
+# ============================================================================
+# Section 2: Creating Your First Module
+# ============================================================================
+
+echo ""
+echo "=== Section 2: Creating Your First Module ==="
+
+# Check if learner has tested the app-config module
+if [[ -f "main.tf" ]]; then
+  check_file_contains "main.tf" "module.*app_config" "Root module calls app_config module"
+  
+  # Check if terraform init has been run
+  if [[ -d ".terraform" ]]; then
+    echo "✓ Terraform initialized"
+  else
+    echo "⚠ Terraform not initialized (run 'terraform init')"
+  fi
+  
+  # Check if config files were created
+  if [[ -d "/tmp/configs" ]]; then
+    echo "✓ Configuration directory created"
+    
+    # Look for any app config directories
+    if ls /tmp/configs/*/ &> /dev/null; then
+      echo "✓ App configuration files generated"
+    else
+      echo "⚠ No app configurations found (run 'terraform apply')"
+    fi
+  else
+    echo "⚠ Configuration directory not created yet"
+  fi
+fi
+
+# ============================================================================
+# Section 3: Building Complex Modules with Libvirt
+# ============================================================================
+
+echo ""
+echo "=== Section 3: Building Complex Modules ==="
+
+# Check libvirt-network module
+check_directory_exists "modules/libvirt-network" "libvirt-network module directory"
+check_file_exists "modules/libvirt-network/main.tf" "libvirt-network main.tf"
+check_file_exists "modules/libvirt-network/variables.tf" "libvirt-network variables.tf"
+check_file_exists "modules/libvirt-network/outputs.tf" "libvirt-network outputs.tf"
+
+if [[ -f "modules/libvirt-network/main.tf" ]]; then
+  check_file_contains "modules/libvirt-network/main.tf" "libvirt_network" "libvirt-network creates network resource"
+  check_file_contains "modules/libvirt-network/main.tf" "dmacvicar/libvirt" "libvirt-network uses libvirt provider"
+fi
+
+# Check libvirt-vm module
+check_directory_exists "modules/libvirt-vm" "libvirt-vm module directory"
+check_file_exists "modules/libvirt-vm/main.tf" "libvirt-vm main.tf"
+check_file_exists "modules/libvirt-vm/variables.tf" "libvirt-vm variables.tf"
+check_file_exists "modules/libvirt-vm/outputs.tf" "libvirt-vm outputs.tf"
+
+if [[ -f "modules/libvirt-vm/main.tf" ]]; then
+  check_file_contains "modules/libvirt-vm/main.tf" "libvirt_domain" "libvirt-vm creates domain resource"
+  check_file_contains "modules/libvirt-vm/main.tf" "libvirt_volume" "libvirt-vm creates volume resource"
+fi
+
+# ============================================================================
+# Section 4: Module Composition
+# ============================================================================
+
+echo ""
+echo "=== Section 4: Module Composition ==="
+
+# Check if learner has composed modules
+if [[ -f "main.tf" ]]; then
+  # Check for network module
+  if grep -q "module.*network" main.tf; then
+    echo "✓ Root module includes network module"
+    
+    # Check for VM modules
+    if grep -q "module.*vm\|module.*server\|module.*database" main.tf; then
+      echo "✓ Root module includes VM module(s)"
+      
+      # Check for composition (network_id reference)
+      if grep -q "network_id.*=.*module\." main.tf; then
+        echo "✓ VM module(s) reference network module output (composition!)"
+      else
+        echo "⚠ VM modules should reference network module output"
+      fi
+    else
+      echo "⚠ No VM modules found in root module"
+    fi
+  else
+    echo "⚠ No network module found in root module"
+  fi
+  
+  # Check if provider is configured
+  if grep -q "provider.*libvirt" main.tf; then
+    echo "✓ Libvirt provider configured"
+  else
+    echo "⚠ Libvirt provider not configured"
+  fi
+fi
+
+# ============================================================================
+# Section 5: Refactoring with moved Blocks
+# ============================================================================
+
+echo ""
+echo "=== Section 5: Refactoring with moved Blocks ==="
+
+# Check if learner has experimented with moved blocks
+if [[ -f "main.tf" ]]; then
+  if grep -q "moved" main.tf; then
+    echo "✓ Found moved block(s) in configuration"
+    
+    # Check moved block structure
+    if grep -q "from.*=.*module\." main.tf && grep -q "to.*=.*module\." main.tf; then
+      echo "✓ moved block has correct structure (from/to)"
+    else
+      echo "⚠ moved block may be incomplete"
+    fi
+  else
+    echo "⚠ No moved blocks found (optional for this section)"
+  fi
+fi
+
+# ============================================================================
+# General Terraform Validation
+# ============================================================================
+
+echo ""
+echo "=== General Validation ==="
+
+# Check if terraform files are valid
+if [[ -f "main.tf" ]]; then
+  echo "Validating Terraform configuration..."
+  
+  # Initialize if needed
+  if [[ ! -d ".terraform" ]]; then
+    echo "Initializing Terraform..."
+    if terraform init -no-color > /tmp/tf-init.log 2>&1; then
+      echo "✓ Terraform initialization successful"
+    else
+      echo "✗ Terraform initialization failed"
+      echo "Error log:"
+      cat /tmp/tf-init.log
+      ((ERRORS++))
+    fi
+  fi
+  
+  # Validate configuration
+  if terraform validate -no-color > /tmp/tf-validate.log 2>&1; then
+    echo "✓ Terraform configuration is valid"
+  else
+    echo "✗ Terraform validation failed"
+    echo "Error log:"
+    cat /tmp/tf-validate.log
+    ((ERRORS++))
+  fi
+fi
+
+# ============================================================================
+# Summary
+# ============================================================================
+
+echo ""
+echo "=== Validation Summary ==="
+
+if [[ $ERRORS -eq 0 ]]; then
+  echo "✓ All checks passed! Great work!"
+  echo ""
+  echo "You've successfully:"
+  echo "  - Created well-structured modules"
+  echo "  - Implemented module composition"
+  echo "  - Learned module design patterns"
+  echo ""
+  echo "Ready to move to the next challenge!"
+  exit 0
+else
+  echo "✗ Found $ERRORS issue(s)"
+  echo ""
+  echo "Review the errors above and:"
+  echo "  1. Check module structure (main.tf, variables.tf, outputs.tf)"
+  echo "  2. Verify module composition (outputs as inputs)"
+  echo "  3. Ensure Terraform configuration is valid"
+  echo ""
+  echo "Tip: Review the assignment instructions for guidance"
+  exit 1
+fi
+
+# Made with Bob

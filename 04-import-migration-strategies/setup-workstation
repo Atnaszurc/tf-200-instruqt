@@ -1,0 +1,762 @@
+#!/bin/bash
+set -euo pipefail
+
+# Challenge 4: Import & Migration Strategies - Setup Script
+# This script prepares the environment with existing infrastructure to import
+
+echo "Setting up Challenge 4: Import & Migration Strategies..."
+
+# Create base directory structure
+mkdir -p /root/terraform/{import-demo,refactor-demo,handoff-demo,cli-import-demo,bulk-import-demo,migration-demo}
+
+# ============================================================================
+# Setup 1: Import Demo - Pre-create networks for import practice
+# ============================================================================
+echo "Creating existing networks for import demo..."
+
+# Create legacy-network
+cat > /tmp/legacy-network.xml << 'EOF'
+<network>
+  <name>legacy-network</name>
+  <forward mode='nat'/>
+  <bridge name='virbr10' stp='on' delay='0'/>
+  <ip address='10.100.0.1' netmask='255.255.255.0'>
+    <dhcp>
+      <range start='10.100.0.2' end='10.100.0.254'/>
+    </dhcp>
+  </ip>
+</network>
+EOF
+
+virsh net-define /tmp/legacy-network.xml
+virsh net-start legacy-network
+virsh net-autostart legacy-network
+
+# Create app-network
+cat > /tmp/app-network.xml << 'EOF'
+<network>
+  <name>app-network</name>
+  <forward mode='nat'/>
+  <bridge name='virbr11' stp='on' delay='0'/>
+  <ip address='10.101.0.1' netmask='255.255.255.0'>
+    <dhcp>
+      <range start='10.101.0.2' end='10.101.0.254'/>
+    </dhcp>
+  </ip>
+</network>
+EOF
+
+virsh net-define /tmp/app-network.xml
+virsh net-start app-network
+virsh net-autostart app-network
+
+# Create db-network
+cat > /tmp/db-network.xml << 'EOF'
+<network>
+  <name>db-network</name>
+  <forward mode='nat'/>
+  <bridge name='virbr12' stp='on' delay='0'/>
+  <ip address='10.102.0.1' netmask='255.255.255.0'>
+    <dhcp>
+      <range start='10.102.0.2' end='10.102.0.254'/>
+    </dhcp>
+  </ip>
+</network>
+EOF
+
+virsh net-define /tmp/db-network.xml
+virsh net-start db-network
+virsh net-autostart db-network
+
+# Create Terraform configuration for import-demo
+cat > /root/terraform/import-demo/main.tf << 'EOF'
+terraform {
+  required_version = ">= 1.5.0"
+  required_providers {
+    libvirt = {
+      source  = "dmacvicar/libvirt"
+      version = "~> 0.7"
+    }
+  }
+}
+
+provider "libvirt" {
+  uri = "qemu:///system"
+}
+EOF
+
+# ============================================================================
+# Setup 2: Refactor Demo - Create initial state for refactoring
+# ============================================================================
+echo "Setting up refactor demo environment..."
+
+cat > /root/terraform/refactor-demo/main.tf << 'EOF'
+terraform {
+  required_version = ">= 1.5.0"
+  required_providers {
+    libvirt = {
+      source  = "dmacvicar/libvirt"
+      version = "~> 0.7"
+    }
+  }
+}
+
+provider "libvirt" {
+  uri = "qemu:///system"
+}
+
+# Initial resources with poor naming
+resource "libvirt_network" "legacy" {
+  name      = "legacy-network"
+  mode      = "nat"
+  addresses = ["10.100.0.0/24"]
+  autostart = true
+  
+  dns {
+    enabled = true
+  }
+  
+  dhcp {
+    enabled = true
+  }
+}
+
+resource "libvirt_network" "app" {
+  name      = "app-network"
+  mode      = "nat"
+  addresses = ["10.101.0.0/24"]
+  autostart = true
+  
+  dns {
+    enabled = true
+  }
+  
+  dhcp {
+    enabled = true
+  }
+}
+
+resource "libvirt_network" "db" {
+  name      = "db-network"
+  mode      = "nat"
+  addresses = ["10.102.0.0/24"]
+  autostart = true
+  
+  dns {
+    enabled = true
+  }
+  
+  dhcp {
+    enabled = true
+  }
+}
+EOF
+
+# Initialize and apply to create initial state
+cd /root/terraform/refactor-demo
+terraform init > /dev/null 2>&1
+terraform apply -auto-approve > /dev/null 2>&1
+
+# ============================================================================
+# Setup 3: Handoff Demo - Prepare for removed blocks practice
+# ============================================================================
+echo "Setting up handoff demo environment..."
+
+cat > /root/terraform/handoff-demo/main.tf << 'EOF'
+terraform {
+  required_version = ">= 1.7.0"
+  required_providers {
+    libvirt = {
+      source  = "dmacvicar/libvirt"
+      version = "~> 0.7"
+    }
+  }
+}
+
+provider "libvirt" {
+  uri = "qemu:///system"
+}
+
+resource "libvirt_network" "production" {
+  name      = "legacy-network"
+  mode      = "nat"
+  addresses = ["10.100.0.0/24"]
+  autostart = true
+  
+  dns {
+    enabled = true
+  }
+  
+  dhcp {
+    enabled = true
+  }
+}
+
+resource "libvirt_network" "application" {
+  name      = "app-network"
+  mode      = "nat"
+  addresses = ["10.101.0.0/24"]
+  autostart = true
+  
+  dns {
+    enabled = true
+  }
+  
+  dhcp {
+    enabled = true
+  }
+}
+
+resource "libvirt_network" "database" {
+  name      = "db-network"
+  mode      = "nat"
+  addresses = ["10.102.0.0/24"]
+  autostart = true
+  
+  dns {
+    enabled = true
+  }
+  
+  dhcp {
+    enabled = true
+  }
+}
+EOF
+
+# Initialize and import existing networks
+cd /root/terraform/handoff-demo
+terraform init > /dev/null 2>&1
+terraform apply -auto-approve > /dev/null 2>&1
+
+# ============================================================================
+# Setup 4: CLI Import Demo - Create network for CLI import practice
+# ============================================================================
+echo "Setting up CLI import demo environment..."
+
+# Create cli-import-network
+cat > /tmp/cli-import-network.xml << 'EOF'
+<network>
+  <name>cli-import-network</name>
+  <forward mode='nat'/>
+  <bridge name='virbr20' stp='on' delay='0'/>
+  <ip address='10.200.0.1' netmask='255.255.255.0'>
+    <dhcp>
+      <range start='10.200.0.2' end='10.200.0.254'/>
+    </dhcp>
+  </ip>
+</network>
+EOF
+
+virsh net-define /tmp/cli-import-network.xml
+virsh net-start cli-import-network
+virsh net-autostart cli-import-network
+
+cat > /root/terraform/cli-import-demo/main.tf << 'EOF'
+terraform {
+  required_version = ">= 1.5.0"
+  required_providers {
+    libvirt = {
+      source  = "dmacvicar/libvirt"
+      version = "~> 0.7"
+    }
+  }
+}
+
+provider "libvirt" {
+  uri = "qemu:///system"
+}
+EOF
+
+# ============================================================================
+# Setup 5: Bulk Import Demo - Create multiple networks
+# ============================================================================
+echo "Setting up bulk import demo environment..."
+
+# Create tier1-network
+cat > /tmp/tier1-network.xml << 'EOF'
+<network>
+  <name>tier1-network</name>
+  <forward mode='nat'/>
+  <bridge name='virbr30' stp='on' delay='0'/>
+  <ip address='10.10.0.1' netmask='255.255.255.0'>
+    <dhcp>
+      <range start='10.10.0.2' end='10.10.0.254'/>
+    </dhcp>
+  </ip>
+</network>
+EOF
+
+virsh net-define /tmp/tier1-network.xml
+virsh net-start tier1-network
+virsh net-autostart tier1-network
+
+# Create tier2-network
+cat > /tmp/tier2-network.xml << 'EOF'
+<network>
+  <name>tier2-network</name>
+  <forward mode='nat'/>
+  <bridge name='virbr31' stp='on' delay='0'/>
+  <ip address='10.20.0.1' netmask='255.255.255.0'>
+    <dhcp>
+      <range start='10.20.0.2' end='10.20.0.254'/>
+    </dhcp>
+  </ip>
+</network>
+EOF
+
+virsh net-define /tmp/tier2-network.xml
+virsh net-start tier2-network
+virsh net-autostart tier2-network
+
+# Create tier3-network
+cat > /tmp/tier3-network.xml << 'EOF'
+<network>
+  <name>tier3-network</name>
+  <forward mode='nat'/>
+  <bridge name='virbr32' stp='on' delay='0'/>
+  <ip address='10.30.0.1' netmask='255.255.255.0'>
+    <dhcp>
+      <range start='10.30.0.2' end='10.30.0.254'/>
+    </dhcp>
+  </ip>
+</network>
+EOF
+
+virsh net-define /tmp/tier3-network.xml
+virsh net-start tier3-network
+virsh net-autostart tier3-network
+
+cat > /root/terraform/bulk-import-demo/main.tf << 'EOF'
+terraform {
+  required_version = ">= 1.5.0"
+  required_providers {
+    libvirt = {
+      source  = "dmacvicar/libvirt"
+      version = "~> 0.7"
+    }
+  }
+}
+
+provider "libvirt" {
+  uri = "qemu:///system"
+}
+EOF
+
+# ============================================================================
+# Setup 6: Migration Demo - Complete migration scenario
+# ============================================================================
+echo "Setting up migration demo environment..."
+
+# Create legacy networks for migration
+cat > /tmp/legacy-net-1.xml << 'EOF'
+<network>
+  <name>legacy-net-1</name>
+  <forward mode='nat'/>
+  <bridge name='virbr40' stp='on' delay='0'/>
+  <ip address='10.50.0.1' netmask='255.255.255.0'>
+    <dhcp>
+      <range start='10.50.0.2' end='10.50.0.254'/>
+    </dhcp>
+  </ip>
+</network>
+EOF
+
+virsh net-define /tmp/legacy-net-1.xml
+virsh net-start legacy-net-1
+virsh net-autostart legacy-net-1
+
+cat > /tmp/legacy-net-2.xml << 'EOF'
+<network>
+  <name>legacy-net-2</name>
+  <forward mode='nat'/>
+  <bridge name='virbr41' stp='on' delay='0'/>
+  <ip address='10.51.0.1' netmask='255.255.255.0'>
+    <dhcp>
+      <range start='10.51.0.2' end='10.51.0.254'/>
+    </dhcp>
+  </ip>
+</network>
+EOF
+
+virsh net-define /tmp/legacy-net-2.xml
+virsh net-start legacy-net-2
+virsh net-autostart legacy-net-2
+
+cat > /tmp/legacy-net-3.xml << 'EOF'
+<network>
+  <name>legacy-net-3</name>
+  <forward mode='nat'/>
+  <bridge name='virbr42' stp='on' delay='0'/>
+  <ip address='10.52.0.1' netmask='255.255.255.0'>
+    <dhcp>
+      <range start='10.52.0.2' end='10.52.0.254'/>
+    </dhcp>
+  </ip>
+</network>
+EOF
+
+virsh net-define /tmp/legacy-net-3.xml
+virsh net-start legacy-net-3
+virsh net-autostart legacy-net-3
+
+cat > /root/terraform/migration-demo/main.tf << 'EOF'
+terraform {
+  required_version = ">= 1.7.0"
+  required_providers {
+    libvirt = {
+      source  = "dmacvicar/libvirt"
+      version = "~> 0.7"
+    }
+  }
+}
+
+provider "libvirt" {
+  uri = "qemu:///system"
+}
+EOF
+
+# ============================================================================
+# Create helper scripts
+# ============================================================================
+echo "Creating helper scripts..."
+
+# Create network discovery script
+cat > /root/terraform/discover-networks.sh << 'EOF'
+#!/bin/bash
+# Helper script to discover existing networks
+
+echo "=== Existing Libvirt Networks ==="
+echo ""
+virsh net-list --all
+
+echo ""
+echo "=== Network Details ==="
+for net in $(virsh net-list --name); do
+  if [ ! -z "$net" ]; then
+    echo ""
+    echo "Network: $net"
+    virsh net-dumpxml "$net" | grep -E "(name|bridge|ip address|range)"
+  fi
+done
+EOF
+
+chmod +x /root/terraform/discover-networks.sh
+
+# Create state backup script
+cat > /root/terraform/backup-state.sh << 'EOF'
+#!/bin/bash
+# Helper script to backup Terraform state
+
+if [ ! -f terraform.tfstate ]; then
+  echo "No terraform.tfstate file found in current directory"
+  exit 1
+fi
+
+BACKUP_FILE="backup-$(date +%Y%m%d-%H%M%S).tfstate"
+terraform state pull > "$BACKUP_FILE"
+
+echo "State backed up to: $BACKUP_FILE"
+ls -lh "$BACKUP_FILE"
+EOF
+
+chmod +x /root/terraform/backup-state.sh
+
+# Create validation script
+cat > /root/terraform/validate-import.sh << 'EOF'
+#!/bin/bash
+# Helper script to validate imported resources
+
+echo "=== Terraform State Resources ==="
+terraform state list
+
+echo ""
+echo "=== Validation Check ==="
+terraform plan
+
+if [ $? -eq 0 ]; then
+  echo ""
+  echo "✅ Validation successful!"
+else
+  echo ""
+  echo "❌ Validation failed - check configuration"
+fi
+EOF
+
+chmod +x /root/terraform/validate-import.sh
+
+# ============================================================================
+# Create README files for each demo
+# ============================================================================
+
+cat > /root/terraform/import-demo/README.md << 'EOF'
+# Import Demo
+
+This directory contains existing networks that need to be imported into Terraform management.
+
+## Existing Networks
+- legacy-network (10.100.0.0/24)
+- app-network (10.101.0.0/24)
+- db-network (10.102.0.0/24)
+
+## Tasks
+1. Create import blocks for each network
+2. Generate configuration with: terraform plan -generate-config-out=generated.tf
+3. Review and update configuration
+4. Import with: terraform apply
+5. Validate with: terraform plan (should show no changes)
+
+## Helper Commands
+```bash
+# Discover networks
+virsh net-list --all
+
+# Get network details
+virsh net-dumpxml <network-name>
+
+# List imported resources
+terraform state list
+```
+EOF
+
+cat > /root/terraform/refactor-demo/README.md << 'EOF'
+# Refactor Demo
+
+This directory contains Terraform-managed networks with poor naming that need refactoring.
+
+## Current Resources
+- libvirt_network.legacy (legacy-network)
+- libvirt_network.app (app-network)
+- libvirt_network.db (db-network)
+
+## Tasks
+1. Backup state: ../backup-state.sh
+2. Add moved blocks to rename resources
+3. Update resource definitions with new names
+4. Apply refactoring: terraform apply
+5. Verify no infrastructure changes occurred
+6. Clean up moved blocks
+
+## Helper Commands
+```bash
+# Backup state
+../backup-state.sh
+
+# List current resources
+terraform state list
+
+# Validate refactoring
+terraform plan
+```
+EOF
+
+cat > /root/terraform/handoff-demo/README.md << 'EOF'
+# Handoff Demo
+
+This directory demonstrates using removed blocks to hand off resources to other teams.
+
+## Current Resources
+- libvirt_network.production (legacy-network)
+- libvirt_network.application (app-network)
+- libvirt_network.database (db-network)
+
+## Tasks
+1. Add removed block for database network
+2. Set destroy = false to keep it running
+3. Remove the resource block
+4. Apply: terraform apply
+5. Verify network still exists but not in state
+6. Clean up removed block
+
+## Helper Commands
+```bash
+# Check state
+terraform state list
+
+# Verify network still exists
+virsh net-list --all | grep db-network
+```
+EOF
+
+cat > /root/terraform/cli-import-demo/README.md << 'EOF'
+# CLI Import Demo
+
+This directory demonstrates legacy CLI import workflow.
+
+## Existing Network
+- cli-import-network (10.200.0.0/24)
+
+## Tasks
+1. Create resource configuration
+2. Initialize: terraform init
+3. Import: terraform import libvirt_network.cli_imported cli-import-network
+4. Validate: terraform plan
+5. Adjust configuration to match actual resource
+
+## Helper Commands
+```bash
+# Get network details
+virsh net-dumpxml cli-import-network
+
+# Import
+terraform import libvirt_network.cli_imported cli-import-network
+
+# Validate
+terraform plan
+```
+EOF
+
+cat > /root/terraform/bulk-import-demo/README.md << 'EOF'
+# Bulk Import Demo
+
+This directory demonstrates importing multiple resources at once.
+
+## Existing Networks
+- tier1-network (10.10.0.0/24)
+- tier2-network (10.20.0.0/24)
+- tier3-network (10.30.0.0/24)
+
+## Tasks
+1. Create import blocks with for_each
+2. Define resources with for_each
+3. Generate configuration
+4. Import all networks: terraform apply
+5. Validate: terraform plan
+
+## Helper Commands
+```bash
+# Discover networks
+../discover-networks.sh
+
+# Import all
+terraform apply
+
+# Validate
+terraform plan
+```
+EOF
+
+cat > /root/terraform/migration-demo/README.md << 'EOF'
+# Migration Demo
+
+This directory contains a complete migration scenario.
+
+## Existing Resources
+- legacy-net-1 (10.50.0.0/24) → Import as production_network
+- legacy-net-2 (10.51.0.0/24) → Import as staging_network
+- legacy-net-3 (10.52.0.0/24) → Hand off to network team
+
+## Tasks
+1. Create MIGRATION_PLAN.md documenting the plan
+2. Backup state
+3. Create import configuration
+4. Generate and review configuration
+5. Import networks
+6. Hand off legacy-net-3 with removed block
+7. Validate final state
+8. Document completion
+
+## Helper Commands
+```bash
+# Discover resources
+../discover-networks.sh
+
+# Backup state
+../backup-state.sh
+
+# Validate
+../validate-import.sh
+```
+EOF
+
+# ============================================================================
+# Initialize Terraform in directories that need it
+# ============================================================================
+echo "Initializing Terraform directories..."
+
+for dir in import-demo cli-import-demo bulk-import-demo migration-demo; do
+  cd /root/terraform/$dir
+  terraform init > /dev/null 2>&1
+done
+
+# ============================================================================
+# Create summary document
+# ============================================================================
+cat > /root/terraform/CHALLENGE_OVERVIEW.md << 'EOF'
+# Challenge 4: Import & Migration Strategies
+
+## Environment Overview
+
+This challenge provides multiple demo environments for practicing import and migration:
+
+### 1. import-demo/
+Practice modern import blocks with existing networks.
+- Networks: legacy-network, app-network, db-network
+- Focus: Import blocks, configuration generation
+
+### 2. refactor-demo/
+Practice safe refactoring with moved blocks.
+- Resources: Already in Terraform state
+- Focus: Renaming resources without destruction
+
+### 3. handoff-demo/
+Practice removing resources from state with removed blocks.
+- Resources: Already in Terraform state
+- Focus: Handing off resources to other teams
+
+### 4. cli-import-demo/
+Practice legacy CLI import workflow.
+- Network: cli-import-network
+- Focus: terraform import command
+
+### 5. bulk-import-demo/
+Practice importing multiple resources at once.
+- Networks: tier1-network, tier2-network, tier3-network
+- Focus: for_each with import blocks
+
+### 6. migration-demo/
+Complete migration scenario combining all techniques.
+- Networks: legacy-net-1, legacy-net-2, legacy-net-3
+- Focus: End-to-end migration process
+
+## Helper Scripts
+
+- `discover-networks.sh` - List all existing networks
+- `backup-state.sh` - Backup Terraform state
+- `validate-import.sh` - Validate imported resources
+
+## Getting Started
+
+1. Read the assignment in the Instruqt interface
+2. Explore each demo directory
+3. Follow the tasks in each README.md
+4. Use helper scripts as needed
+
+## Tips
+
+- Always backup state before manipulation
+- Use terraform plan to validate changes
+- Read the README.md in each directory
+- Check the assignment for detailed instructions
+EOF
+
+# ============================================================================
+# Set permissions
+# ============================================================================
+chmod -R 755 /root/terraform
+
+# ============================================================================
+# Cleanup temporary files
+# ============================================================================
+rm -f /tmp/*.xml
+
+echo "✅ Challenge 4 setup complete!"
+echo ""
+echo "Environment includes:"
+echo "  - 10 pre-created networks for import practice"
+echo "  - 6 demo directories with different scenarios"
+echo "  - Helper scripts for common tasks"
+echo "  - README files in each directory"
+echo ""
+echo "Start with: cd /root/terraform && cat CHALLENGE_OVERVIEW.md"
+
+# Made with Bob

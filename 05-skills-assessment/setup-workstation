@@ -1,0 +1,471 @@
+#!/bin/bash
+set -euo pipefail
+
+# Challenge 5: Skills Assessment - Setup Script
+# Prepares environment for final assessment
+
+echo "Setting up Challenge 5: Skills Assessment..."
+
+# Create base directory structure
+mkdir -p /root/terraform/{modules,config,legacy}
+
+# ============================================================================
+# Create Legacy Infrastructure (to be imported)
+# ============================================================================
+echo "Creating legacy infrastructure for import practice..."
+
+# Create legacy-app-network
+cat > /tmp/legacy-app-network.xml << 'EOF'
+<network>
+  <name>legacy-app-network</name>
+  <forward mode='nat'/>
+  <bridge name='virbr100' stp='on' delay='0'/>
+  <ip address='10.100.0.1' netmask='255.255.255.0'>
+    <dhcp>
+      <range start='10.100.0.2' end='10.100.0.254'/>
+    </dhcp>
+  </ip>
+</network>
+EOF
+
+virsh net-define /tmp/legacy-app-network.xml
+virsh net-start legacy-app-network
+virsh net-autostart legacy-app-network
+
+echo "✅ Created legacy-app-network"
+
+# Create legacy storage pool for legacy VM
+virsh pool-define-as legacy-pool dir - - - - "/var/lib/libvirt/images/legacy"
+virsh pool-build legacy-pool
+virsh pool-start legacy-pool
+virsh pool-autostart legacy-pool
+
+# Create a small disk for legacy VM
+qemu-img create -f qcow2 /var/lib/libvirt/images/legacy/legacy-app-server.qcow2 1G
+
+# Create legacy-app-server VM
+cat > /tmp/legacy-app-server.xml << 'EOF'
+<domain type='kvm'>
+  <name>legacy-app-server</name>
+  <memory unit='MiB'>512</memory>
+  <vcpu>1</vcpu>
+  <os>
+    <type arch='x86_64'>hvm</type>
+    <boot dev='hd'/>
+  </os>
+  <devices>
+    <disk type='file' device='disk'>
+      <driver name='qemu' type='qcow2'/>
+      <source file='/var/lib/libvirt/images/legacy/legacy-app-server.qcow2'/>
+      <target dev='vda' bus='virtio'/>
+    </disk>
+    <interface type='network'>
+      <source network='legacy-app-network'/>
+      <model type='virtio'/>
+    </interface>
+    <console type='pty'/>
+  </devices>
+</domain>
+EOF
+
+virsh define /tmp/legacy-app-server.xml
+# Don't start the VM to save resources, just define it
+
+echo "✅ Created legacy-app-server (defined, not started)"
+
+# ============================================================================
+# Create Sample YAML Configuration Files
+# ============================================================================
+echo "Creating sample YAML configuration files..."
+
+cat > /root/terraform/config/dev.yaml << 'EOF'
+environment: dev
+frontend:
+  server_count: 2
+  network_cidr: "10.10.0.0/24"
+  monitoring_enabled: false
+application:
+  server_count: 2
+  network_cidr: "10.11.0.0/24"
+  caching_enabled: false
+database:
+  server_count: 1
+  network_cidr: "10.12.0.0/24"
+  backup_enabled: false
+  replication_enabled: false
+EOF
+
+cat > /root/terraform/config/staging.yaml << 'EOF'
+environment: staging
+frontend:
+  server_count: 2
+  network_cidr: "10.20.0.0/24"
+  monitoring_enabled: true
+application:
+  server_count: 3
+  network_cidr: "10.21.0.0/24"
+  caching_enabled: true
+database:
+  server_count: 1
+  network_cidr: "10.22.0.0/24"
+  backup_enabled: true
+  replication_enabled: false
+EOF
+
+cat > /root/terraform/config/prod.yaml << 'EOF'
+environment: prod
+frontend:
+  server_count: 3
+  network_cidr: "10.30.0.0/24"
+  monitoring_enabled: true
+application:
+  server_count: 4
+  network_cidr: "10.31.0.0/24"
+  caching_enabled: true
+database:
+  server_count: 2
+  network_cidr: "10.32.0.0/24"
+  backup_enabled: true
+  replication_enabled: true
+EOF
+
+echo "✅ Created YAML configuration files"
+
+# ============================================================================
+# Create Helper Scripts
+# ============================================================================
+echo "Creating helper scripts..."
+
+cat > /root/terraform/validate-structure.sh << 'EOF'
+#!/bin/bash
+# Helper script to validate module structure
+
+echo "=== Validating Module Structure ==="
+echo ""
+
+ERRORS=0
+
+# Check for required modules
+for module in frontend application database app-stack; do
+  if [ -d "modules/$module" ]; then
+    echo "✅ Module exists: $module"
+    
+    # Check for required files
+    for file in main.tf variables.tf outputs.tf README.md; do
+      if [ -f "modules/$module/$file" ]; then
+        echo "  ✅ $file"
+      else
+        echo "  ❌ Missing: $file"
+        ERRORS=$((ERRORS + 1))
+      fi
+    done
+  else
+    echo "❌ Module missing: $module"
+    ERRORS=$((ERRORS + 1))
+  fi
+  echo ""
+done
+
+# Check for YAML configs
+echo "=== Validating YAML Configurations ==="
+for env in dev staging prod; do
+  if [ -f "config/$env.yaml" ]; then
+    echo "✅ Configuration exists: $env.yaml"
+  else
+    echo "❌ Configuration missing: $env.yaml"
+    ERRORS=$((ERRORS + 1))
+  fi
+done
+echo ""
+
+if [ $ERRORS -eq 0 ]; then
+  echo "✅ Structure validation passed!"
+  exit 0
+else
+  echo "❌ Structure validation failed with $ERRORS error(s)"
+  exit 1
+fi
+EOF
+
+chmod +x /root/terraform/validate-structure.sh
+
+cat > /root/terraform/test-environment.sh << 'EOF'
+#!/bin/bash
+# Helper script to test a specific environment
+
+if [ $# -eq 0 ]; then
+  echo "Usage: $0 <environment>"
+  echo "Example: $0 dev"
+  exit 1
+fi
+
+ENV=$1
+
+if [ ! -f "config/$ENV.yaml" ]; then
+  echo "❌ Configuration file not found: config/$ENV.yaml"
+  exit 1
+fi
+
+echo "=== Testing Environment: $ENV ==="
+echo ""
+
+# Initialize if needed
+if [ ! -d ".terraform" ]; then
+  echo "Initializing Terraform..."
+  terraform init
+  echo ""
+fi
+
+# Plan with environment variable
+echo "Running terraform plan for $ENV..."
+TF_VAR_environment=$ENV terraform plan
+
+echo ""
+echo "✅ Plan completed for $ENV"
+EOF
+
+chmod +x /root/terraform/test-environment.sh
+
+cat > /root/terraform/discover-legacy.sh << 'EOF'
+#!/bin/bash
+# Helper script to discover legacy infrastructure
+
+echo "=== Legacy Infrastructure Discovery ==="
+echo ""
+
+echo "Networks:"
+virsh net-list --all | grep legacy
+
+echo ""
+echo "VMs:"
+virsh list --all | grep legacy
+
+echo ""
+echo "Storage Pools:"
+virsh pool-list --all | grep legacy
+
+echo ""
+echo "=== Legacy Network Details ==="
+virsh net-dumpxml legacy-app-network | grep -E "(name|bridge|ip address|range)"
+
+echo ""
+echo "=== Legacy VM Details ==="
+virsh dumpxml legacy-app-server | grep -E "(name|memory|vcpu|source file|source network)"
+EOF
+
+chmod +x /root/terraform/discover-legacy.sh
+
+# ============================================================================
+# Create README with Instructions
+# ============================================================================
+cat > /root/terraform/README.md << 'EOF'
+# Challenge 5: Skills Assessment
+
+## Overview
+
+This is your final challenge! Build a complete, production-ready modular infrastructure for CloudApp.
+
+## What's Provided
+
+### Legacy Infrastructure (to import)
+- `legacy-app-network` (10.100.0.0/24)
+- `legacy-app-server` (VM on legacy network)
+
+### Configuration Files
+- `config/dev.yaml` - Development environment config
+- `config/staging.yaml` - Staging environment config
+- `config/prod.yaml` - Production environment config
+
+### Helper Scripts
+- `validate-structure.sh` - Validate your module structure
+- `test-environment.sh` - Test a specific environment
+- `discover-legacy.sh` - Discover legacy infrastructure
+
+## Your Task
+
+Create a modular infrastructure with:
+
+1. **Modules** (in `modules/` directory):
+   - `frontend/` - Web tier module
+   - `application/` - App tier module
+   - `database/` - Data tier module
+   - `app-stack/` - Composition module
+
+2. **YAML-Driven Configuration**:
+   - Parse YAML files with `yamldecode()`
+   - Support dev, staging, prod environments
+   - Environment-specific settings
+
+3. **Import Legacy Resources**:
+   - Import `legacy-app-network`
+   - Import `legacy-app-server`
+   - Use import blocks (not CLI)
+
+4. **Advanced Patterns**:
+   - Canary deployment for app tier
+   - Conditional resources
+   - Module composition
+
+## Getting Started
+
+1. Discover legacy infrastructure:
+   ```bash
+   ./discover-legacy.sh
+   ```
+
+2. Create module structure:
+   ```bash
+   mkdir -p modules/{frontend,application,database,app-stack}
+   ```
+
+3. Validate structure:
+   ```bash
+   ./validate-structure.sh
+   ```
+
+4. Test an environment:
+   ```bash
+   ./test-environment.sh dev
+   ```
+
+## Tips
+
+- Start with one module, test it, then add the next
+- Use YAML files for all environment-specific config
+- Import legacy resources after modules are working
+- Test each environment separately
+- Follow best practices from previous challenges
+
+## Validation
+
+When you click "Check", your solution will be validated against:
+- Module structure and composition
+- YAML configuration usage
+- Import of legacy resources
+- Advanced patterns implementation
+- Code quality and best practices
+
+Good luck! 🚀
+EOF
+
+# ============================================================================
+# Create Main Terraform Configuration Starter
+# ============================================================================
+cat > /root/terraform/main.tf << 'EOF'
+terraform {
+  required_version = ">= 1.5.0"
+  required_providers {
+    libvirt = {
+      source  = "dmacvicar/libvirt"
+      version = "~> 0.7"
+    }
+    local = {
+      source  = "hashicorp/local"
+      version = "~> 2.5"
+    }
+  }
+}
+
+provider "libvirt" {
+  uri = "qemu:///system"
+}
+
+# TODO: Add your solution here
+# 1. Parse YAML configuration
+# 2. Use app-stack module
+# 3. Import legacy resources
+# 4. Implement advanced patterns
+EOF
+
+cat > /root/terraform/variables.tf << 'EOF'
+variable "environment" {
+  description = "Environment name (dev, staging, prod)"
+  type        = string
+  default     = "dev"
+}
+
+# TODO: Add additional variables as needed
+EOF
+
+cat > /root/terraform/outputs.tf << 'EOF'
+# TODO: Add outputs from your app-stack module
+EOF
+
+# ============================================================================
+# Create Module Template Structure
+# ============================================================================
+echo "Creating module template structure..."
+
+for module in frontend application database app-stack; do
+  mkdir -p /root/terraform/modules/$module
+  
+  cat > /root/terraform/modules/$module/main.tf << 'EOF'
+# TODO: Implement module resources
+EOF
+
+  cat > /root/terraform/modules/$module/variables.tf << 'EOF'
+# TODO: Define module variables
+EOF
+
+  cat > /root/terraform/modules/$module/outputs.tf << 'EOF'
+# TODO: Define module outputs
+EOF
+
+  cat > /root/terraform/modules/$module/README.md << EOF
+# $module Module
+
+## Description
+
+TODO: Add module description
+
+## Usage
+
+\`\`\`hcl
+module "$module" {
+  source = "./modules/$module"
+  
+  # TODO: Add example usage
+}
+\`\`\`
+
+## Inputs
+
+TODO: Document inputs
+
+## Outputs
+
+TODO: Document outputs
+EOF
+done
+
+echo "✅ Created module template structure"
+
+# ============================================================================
+# Initialize Terraform
+# ============================================================================
+cd /root/terraform
+terraform init > /dev/null 2>&1
+
+# ============================================================================
+# Cleanup temporary files
+# ============================================================================
+rm -f /tmp/*.xml
+
+echo ""
+echo "✅ Challenge 5 setup complete!"
+echo ""
+echo "Environment includes:"
+echo "  - Legacy infrastructure (network + VM) for import practice"
+echo "  - YAML configuration files for 3 environments"
+echo "  - Helper scripts for validation and testing"
+echo "  - Module template structure"
+echo "  - Starter Terraform configuration"
+echo ""
+echo "Get started with:"
+echo "  cd /root/terraform"
+echo "  cat README.md"
+echo "  ./discover-legacy.sh"
+echo ""
+echo "Good luck! 🚀"
+
+# Made with Bob

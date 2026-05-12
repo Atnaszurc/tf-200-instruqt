@@ -1,0 +1,69 @@
+slug: partner-tf-200-terraform-modules
+title: 'Partner-TF-200: Terraform Modules & Patterns'
+teaser: Master Terraform modules, advanced patterns, and enterprise-grade infrastructure design
+description: |-
+  # TF-200: Terraform Modules & Patterns
+  
+  **Level**: Intermediate (200)
+  **Duration**: ~6 hours
+  **Prerequisites**: TF-100 Terraform Fundamentals
+  
+  ## What You'll Learn
+  
+  Transform from writing basic Terraform to creating professional, reusable infrastructure components:
+  
+  - ✅ Design and compose professional modules
+  - ✅ Implement advanced deployment patterns
+  - ✅ Create YAML-driven infrastructure
+  - ✅ Import and migrate existing resources
+  - ✅ Build enterprise-grade solutions
+  
+  ## Lab Structure
+  
+  This hands-on lab includes 4 comprehensive challenges plus a final skills assessment:
+  
+  1. **Module Design & Composition** (90 min) - Create reusable infrastructure modules
+  2. **Advanced Module Patterns** (90 min) - Implement enterprise deployment strategies
+  3. **YAML-Driven Configuration** (90 min) - Build data-driven infrastructure
+  4. **Import & Migration** (90 min) - Manage existing infrastructure with Terraform
+  5. **Skills Assessment** (120 min) - Apply all concepts in a real-world scenario
+  
+  ## Environment
+  
+  Your lab environment includes:
+  - Terraform (latest stable, 1.15+)
+  - Libvirt/QEMU with nested virtualization
+  - Pre-configured workspace with examples
+  - Both terminal and code editor interfaces
+  
+  ## Prerequisites
+  
+  You must have completed TF-100 or have equivalent knowledge:
+  - Writing Terraform configurations
+  - Variables, loops, and functions
+  - Managing infrastructure resources
+  - State management and CLI operations
+  
+  Ready to master Terraform modules? Let's begin! 🚀
+icon: https://storage.googleapis.com/instruqt-frontend/img/tracks/terraform.png
+tags:
+  - terraform
+  - infrastructure-as-code
+  - modules
+  - devops
+  - hashicorp
+  - intermediate
+owner: hashicorp-field-ops
+developers:
+  - fredrik.warfvinge@ibm.com
+idle_timeout: 32400
+timelimit: 32400
+skipping_enabled: true
+lab_config:
+  overlay: false
+  width: 33
+  position: right
+  feedback_recap_enabled: true
+  loadingMessages: true
+
+# Made with Bob

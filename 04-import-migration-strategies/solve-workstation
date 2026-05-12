@@ -1,0 +1,838 @@
+#!/bin/bash
+set -euo pipefail
+
+# Challenge 4: Import & Migration Strategies - Solve Script
+# Demonstrates complete solutions for all import and migration tasks
+
+echo "Solving Challenge 4: Import & Migration Strategies..."
+echo ""
+
+# ============================================================================
+# Solution 1: Import Demo - Modern Import Blocks
+# ============================================================================
+echo "=== Solution 1: Import Demo ==="
+echo "Demonstrating modern import blocks with configuration generation..."
+
+cd /root/terraform/import-demo
+
+# Step 1: Create import blocks
+cat > imports.tf << 'EOF'
+# Import existing networks into Terraform management
+# These import blocks are declarative and version-controlled
+
+import {
+  to = libvirt_network.legacy
+  id = "legacy-network"
+}
+
+import {
+  to = libvirt_network.app
+  id = "app-network"
+}
+
+import {
+  to = libvirt_network.db
+  id = "db-network"
+}
+EOF
+
+echo "✅ Created import blocks in imports.tf"
+
+# Step 2: Create initial resource definitions
+cat > networks.tf << 'EOF'
+# Network resource definitions
+# These will be refined after configuration generation
+
+resource "libvirt_network" "legacy" {
+  name      = "legacy-network"
+  mode      = "nat"
+  addresses = ["10.100.0.0/24"]
+  autostart = true
+  
+  dns {
+    enabled = true
+  }
+  
+  dhcp {
+    enabled = true
+  }
+}
+
+resource "libvirt_network" "app" {
+  name      = "app-network"
+  mode      = "nat"
+  addresses = ["10.101.0.0/24"]
+  autostart = true
+  
+  dns {
+    enabled = true
+  }
+  
+  dhcp {
+    enabled = true
+  }
+}
+
+resource "libvirt_network" "db" {
+  name      = "db-network"
+  mode      = "nat"
+  addresses = ["10.102.0.0/24"]
+  autostart = true
+  
+  dns {
+    enabled = true
+  }
+  
+  dhcp {
+    enabled = true
+  }
+}
+EOF
+
+echo "✅ Created resource definitions in networks.tf"
+
+# Step 3: Generate configuration from existing resources
+echo "Generating configuration from existing infrastructure..."
+terraform plan -generate-config-out=generated.tf > /dev/null 2>&1 || true
+
+if [ -f generated.tf ]; then
+  echo "✅ Generated configuration in generated.tf"
+  echo "   Review this file to see actual resource configuration"
+fi
+
+# Step 4: Import the resources
+echo "Importing networks into Terraform state..."
+terraform apply -auto-approve > /dev/null 2>&1
+
+# Step 5: Verify import
+echo "✅ Import complete! Verifying..."
+terraform state list
+echo ""
+
+# Validate no changes needed
+if terraform plan -detailed-exitcode > /dev/null 2>&1; then
+  echo "✅ Validation successful: No configuration drift"
+else
+  echo "⚠️  Configuration drift detected - review generated.tf"
+fi
+
+echo ""
+
+# ============================================================================
+# Solution 2: Refactor Demo - moved Blocks
+# ============================================================================
+echo "=== Solution 2: Refactor Demo ==="
+echo "Demonstrating safe refactoring with moved blocks..."
+
+cd /root/terraform/refactor-demo
+
+# Step 1: Backup state
+echo "Creating state backup..."
+terraform state pull > backup-$(date +%Y%m%d-%H%M%S).tfstate
+echo "✅ State backed up"
+
+# Step 2: Add moved blocks and update resource names
+cat > main.tf << 'EOF'
+terraform {
+  required_version = ">= 1.5.0"
+  required_providers {
+    libvirt = {
+      source  = "dmacvicar/libvirt"
+      version = "~> 0.7"
+    }
+  }
+}
+
+provider "libvirt" {
+  uri = "qemu:///system"
+}
+
+# moved blocks prevent resource destruction during refactoring
+moved {
+  from = libvirt_network.legacy
+  to   = libvirt_network.production
+}
+
+moved {
+  from = libvirt_network.app
+  to   = libvirt_network.application
+}
+
+moved {
+  from = libvirt_network.db
+  to   = libvirt_network.database
+}
+
+# Resources with better names
+resource "libvirt_network" "production" {
+  name      = "legacy-network"  # Actual network name unchanged
+  mode      = "nat"
+  addresses = ["10.100.0.0/24"]
+  autostart = true
+  
+  dns {
+    enabled = true
+  }
+  
+  dhcp {
+    enabled = true
+  }
+}
+
+resource "libvirt_network" "application" {
+  name      = "app-network"
+  mode      = "nat"
+  addresses = ["10.101.0.0/24"]
+  autostart = true
+  
+  dns {
+    enabled = true
+  }
+  
+  dhcp {
+    enabled = true
+  }
+}
+
+resource "libvirt_network" "database" {
+  name      = "db-network"
+  mode      = "nat"
+  addresses = ["10.102.0.0/24"]
+  autostart = true
+  
+  dns {
+    enabled = true
+  }
+  
+  dhcp {
+    enabled = true
+  }
+}
+EOF
+
+echo "✅ Added moved blocks and updated resource names"
+
+# Step 3: Apply refactoring
+echo "Applying refactoring (state updates only, no infrastructure changes)..."
+terraform apply -auto-approve > /dev/null 2>&1
+
+# Step 4: Verify refactoring
+echo "✅ Refactoring complete! New resource addresses:"
+terraform state list
+echo ""
+
+# Step 5: Clean up moved blocks
+cat > main.tf << 'EOF'
+terraform {
+  required_version = ">= 1.5.0"
+  required_providers {
+    libvirt = {
+      source  = "dmacvicar/libvirt"
+      version = "~> 0.7"
+    }
+  }
+}
+
+provider "libvirt" {
+  uri = "qemu:///system"
+}
+
+# Resources with better names (moved blocks removed after successful refactoring)
+resource "libvirt_network" "production" {
+  name      = "legacy-network"
+  mode      = "nat"
+  addresses = ["10.100.0.0/24"]
+  autostart = true
+  
+  dns {
+    enabled = true
+  }
+  
+  dhcp {
+    enabled = true
+  }
+}
+
+resource "libvirt_network" "application" {
+  name      = "app-network"
+  mode      = "nat"
+  addresses = ["10.101.0.0/24"]
+  autostart = true
+  
+  dns {
+    enabled = true
+  }
+  
+  dhcp {
+    enabled = true
+  }
+}
+
+resource "libvirt_network" "database" {
+  name      = "db-network"
+  mode      = "nat"
+  addresses = ["10.102.0.0/24"]
+  autostart = true
+  
+  dns {
+    enabled = true
+  }
+  
+  dhcp {
+    enabled = true
+  }
+}
+EOF
+
+echo "✅ Cleaned up moved blocks (they've served their purpose)"
+echo ""
+
+# ============================================================================
+# Solution 3: Handoff Demo - removed Blocks
+# ============================================================================
+echo "=== Solution 3: Handoff Demo ==="
+echo "Demonstrating removed blocks for resource handoff..."
+
+cd /root/terraform/handoff-demo
+
+# Step 1: Add removed block for database network
+cat > main.tf << 'EOF'
+terraform {
+  required_version = ">= 1.7.0"
+  required_providers {
+    libvirt = {
+      source  = "dmacvicar/libvirt"
+      version = "~> 0.7"
+    }
+  }
+}
+
+provider "libvirt" {
+  uri = "qemu:///system"
+}
+
+# Hand off database network to DBA team
+# removed block removes from state but keeps resource running
+removed {
+  from = libvirt_network.database
+  
+  lifecycle {
+    destroy = false  # Keep the network running
+  }
+}
+
+# Keep managing production and application networks
+resource "libvirt_network" "production" {
+  name      = "legacy-network"
+  mode      = "nat"
+  addresses = ["10.100.0.0/24"]
+  autostart = true
+  
+  dns {
+    enabled = true
+  }
+  
+  dhcp {
+    enabled = true
+  }
+}
+
+resource "libvirt_network" "application" {
+  name      = "app-network"
+  mode      = "nat"
+  addresses = ["10.101.0.0/24"]
+  autostart = true
+  
+  dns {
+    enabled = true
+  }
+  
+  dhcp {
+    enabled = true
+  }
+}
+EOF
+
+echo "✅ Added removed block for database network"
+
+# Step 2: Apply removal
+echo "Removing database network from state (keeping it running)..."
+terraform apply -auto-approve > /dev/null 2>&1
+
+# Step 3: Verify removal
+echo "✅ Removal complete!"
+echo "Resources still in Terraform state:"
+terraform state list
+echo ""
+
+echo "Verifying db-network still exists in libvirt:"
+if virsh net-list --all | grep -q "db-network"; then
+  echo "✅ db-network still running (successfully handed off)"
+else
+  echo "❌ db-network not found"
+fi
+echo ""
+
+# Step 4: Clean up removed block
+cat > main.tf << 'EOF'
+terraform {
+  required_version = ">= 1.7.0"
+  required_providers {
+    libvirt = {
+      source  = "dmacvicar/libvirt"
+      version = "~> 0.7"
+    }
+  }
+}
+
+provider "libvirt" {
+  uri = "qemu:///system"
+}
+
+# Continue managing production and application networks
+resource "libvirt_network" "production" {
+  name      = "legacy-network"
+  mode      = "nat"
+  addresses = ["10.100.0.0/24"]
+  autostart = true
+  
+  dns {
+    enabled = true
+  }
+  
+  dhcp {
+    enabled = true
+  }
+}
+
+resource "libvirt_network" "application" {
+  name      = "app-network"
+  mode      = "nat"
+  addresses = ["10.101.0.0/24"]
+  autostart = true
+  
+  dns {
+    enabled = true
+  }
+  
+  dhcp {
+    enabled = true
+  }
+}
+EOF
+
+echo "✅ Cleaned up removed block"
+echo ""
+
+# ============================================================================
+# Solution 4: CLI Import Demo - Legacy Import
+# ============================================================================
+echo "=== Solution 4: CLI Import Demo ==="
+echo "Demonstrating legacy CLI import workflow..."
+
+cd /root/terraform/cli-import-demo
+
+# Step 1: Create resource configuration
+cat > main.tf << 'EOF'
+terraform {
+  required_version = ">= 1.5.0"
+  required_providers {
+    libvirt = {
+      source  = "dmacvicar/libvirt"
+      version = "~> 0.7"
+    }
+  }
+}
+
+provider "libvirt" {
+  uri = "qemu:///system"
+}
+
+# Resource configuration for CLI import
+resource "libvirt_network" "cli_imported" {
+  name      = "cli-import-network"
+  mode      = "nat"
+  addresses = ["10.200.0.0/24"]
+  autostart = true
+  
+  dns {
+    enabled = true
+  }
+  
+  dhcp {
+    enabled = true
+  }
+}
+EOF
+
+echo "✅ Created resource configuration"
+
+# Step 2: Import using CLI
+echo "Importing network using CLI command..."
+terraform import libvirt_network.cli_imported cli-import-network > /dev/null 2>&1
+
+# Step 3: Verify import
+echo "✅ CLI import complete!"
+terraform state show libvirt_network.cli_imported | head -10
+echo ""
+
+# Validate
+if terraform plan -detailed-exitcode > /dev/null 2>&1; then
+  echo "✅ Validation successful: No configuration drift"
+else
+  echo "⚠️  Configuration drift detected - adjust main.tf"
+fi
+
+echo ""
+
+# ============================================================================
+# Solution 5: Bulk Import Demo - Multiple Resources
+# ============================================================================
+echo "=== Solution 5: Bulk Import Demo ==="
+echo "Demonstrating bulk import with for_each..."
+
+cd /root/terraform/bulk-import-demo
+
+# Create bulk import configuration
+cat > main.tf << 'EOF'
+terraform {
+  required_version = ">= 1.5.0"
+  required_providers {
+    libvirt = {
+      source  = "dmacvicar/libvirt"
+      version = "~> 0.7"
+    }
+  }
+}
+
+provider "libvirt" {
+  uri = "qemu:///system"
+}
+
+locals {
+  networks = {
+    "tier1" = { name = "tier1-network", cidr = "10.10.0.0/24" }
+    "tier2" = { name = "tier2-network", cidr = "10.20.0.0/24" }
+    "tier3" = { name = "tier3-network", cidr = "10.30.0.0/24" }
+  }
+}
+
+# Bulk import with for_each
+import {
+  for_each = local.networks
+  to       = libvirt_network.tiers[each.key]
+  id       = each.value.name
+}
+
+resource "libvirt_network" "tiers" {
+  for_each = local.networks
+  
+  name      = each.value.name
+  mode      = "nat"
+  addresses = [each.value.cidr]
+  autostart = true
+  
+  dns {
+    enabled = true
+  }
+  
+  dhcp {
+    enabled = true
+  }
+}
+EOF
+
+echo "✅ Created bulk import configuration with for_each"
+
+# Generate configuration
+echo "Generating configuration for all networks..."
+terraform plan -generate-config-out=generated.tf > /dev/null 2>&1 || true
+
+# Import all networks
+echo "Importing all tier networks..."
+terraform apply -auto-approve > /dev/null 2>&1
+
+# Verify
+echo "✅ Bulk import complete!"
+echo "Imported resources:"
+terraform state list
+echo ""
+
+# ============================================================================
+# Solution 6: Migration Demo - Complete Scenario
+# ============================================================================
+echo "=== Solution 6: Migration Demo ==="
+echo "Demonstrating complete migration scenario..."
+
+cd /root/terraform/migration-demo
+
+# Step 1: Create migration plan
+cat > MIGRATION_PLAN.md << 'EOF'
+# Migration Plan
+
+## Current State
+- legacy-net-1 (10.50.0.0/24) → Import as production_network
+- legacy-net-2 (10.51.0.0/24) → Import as staging_network
+- legacy-net-3 (10.52.0.0/24) → Hand off to network team
+
+## Migration Steps
+1. ✅ Document migration plan
+2. ✅ Backup state
+3. ✅ Create import configuration
+4. ✅ Import networks with new names
+5. ✅ Hand off legacy-net-3
+6. ✅ Validate no changes needed
+7. ✅ Clean up migration blocks
+
+## Rollback Plan
+- State backups in backup-*.tfstate
+- Can restore with: terraform state push backup-<timestamp>.tfstate
+
+## Completion
+Migration completed: $(date)
+EOF
+
+echo "✅ Created migration plan"
+
+# Step 2: Backup state
+terraform state pull > backup-$(date +%Y%m%d-%H%M%S).tfstate 2>/dev/null || true
+echo "✅ State backed up"
+
+# Step 3: Create import configuration
+cat > main.tf << 'EOF'
+terraform {
+  required_version = ">= 1.7.0"
+  required_providers {
+    libvirt = {
+      source  = "dmacvicar/libvirt"
+      version = "~> 0.7"
+    }
+  }
+}
+
+provider "libvirt" {
+  uri = "qemu:///system"
+}
+
+# Import legacy networks with better names
+import {
+  to = libvirt_network.production
+  id = "legacy-net-1"
+}
+
+import {
+  to = libvirt_network.staging
+  id = "legacy-net-2"
+}
+
+import {
+  to = libvirt_network.handoff
+  id = "legacy-net-3"
+}
+
+resource "libvirt_network" "production" {
+  name      = "legacy-net-1"
+  mode      = "nat"
+  addresses = ["10.50.0.0/24"]
+  autostart = true
+  
+  dns {
+    enabled = true
+  }
+  
+  dhcp {
+    enabled = true
+  }
+}
+
+resource "libvirt_network" "staging" {
+  name      = "legacy-net-2"
+  mode      = "nat"
+  addresses = ["10.51.0.0/24"]
+  autostart = true
+  
+  dns {
+    enabled = true
+  }
+  
+  dhcp {
+    enabled = true
+  }
+}
+
+resource "libvirt_network" "handoff" {
+  name      = "legacy-net-3"
+  mode      = "nat"
+  addresses = ["10.52.0.0/24"]
+  autostart = true
+  
+  dns {
+    enabled = true
+  }
+  
+  dhcp {
+    enabled = true
+  }
+}
+EOF
+
+echo "✅ Created import configuration"
+
+# Step 4: Import networks
+echo "Importing networks..."
+terraform apply -auto-approve > /dev/null 2>&1
+
+echo "✅ Networks imported"
+
+# Step 5: Hand off legacy-net-3
+cat > main.tf << 'EOF'
+terraform {
+  required_version = ">= 1.7.0"
+  required_providers {
+    libvirt = {
+      source  = "dmacvicar/libvirt"
+      version = "~> 0.7"
+    }
+  }
+}
+
+provider "libvirt" {
+  uri = "qemu:///system"
+}
+
+# Hand off to network team
+removed {
+  from = libvirt_network.handoff
+  
+  lifecycle {
+    destroy = false
+  }
+}
+
+resource "libvirt_network" "production" {
+  name      = "legacy-net-1"
+  mode      = "nat"
+  addresses = ["10.50.0.0/24"]
+  autostart = true
+  
+  dns {
+    enabled = true
+  }
+  
+  dhcp {
+    enabled = true
+  }
+}
+
+resource "libvirt_network" "staging" {
+  name      = "legacy-net-2"
+  mode      = "nat"
+  addresses = ["10.51.0.0/24"]
+  autostart = true
+  
+  dns {
+    enabled = true
+  }
+  
+  dhcp {
+    enabled = true
+  }
+}
+EOF
+
+echo "Handing off legacy-net-3..."
+terraform apply -auto-approve > /dev/null 2>&1
+
+echo "✅ Handoff complete"
+
+# Step 6: Final cleanup
+cat > main.tf << 'EOF'
+terraform {
+  required_version = ">= 1.7.0"
+  required_providers {
+    libvirt = {
+      source  = "dmacvicar/libvirt"
+      version = "~> 0.7"
+    }
+  }
+}
+
+provider "libvirt" {
+  uri = "qemu:///system"
+}
+
+resource "libvirt_network" "production" {
+  name      = "legacy-net-1"
+  mode      = "nat"
+  addresses = ["10.50.0.0/24"]
+  autostart = true
+  
+  dns {
+    enabled = true
+  }
+  
+  dhcp {
+    enabled = true
+  }
+}
+
+resource "libvirt_network" "staging" {
+  name      = "legacy-net-2"
+  mode      = "nat"
+  addresses = ["10.51.0.0/24"]
+  autostart = true
+  
+  dns {
+    enabled = true
+  }
+  
+  dhcp {
+    enabled = true
+  }
+}
+EOF
+
+echo "✅ Migration blocks cleaned up"
+
+# Final validation
+echo ""
+echo "Final state:"
+terraform state list
+echo ""
+
+if terraform plan -detailed-exitcode > /dev/null 2>&1; then
+  echo "✅ Migration validation successful: No configuration drift"
+else
+  echo "⚠️  Configuration drift detected"
+fi
+
+echo ""
+
+# ============================================================================
+# Summary
+# ============================================================================
+echo "============================================"
+echo "Challenge 4 Solution Complete!"
+echo "============================================"
+echo ""
+echo "Demonstrated:"
+echo "  ✅ Modern import blocks (Terraform 1.5+)"
+echo "  ✅ Configuration generation"
+echo "  ✅ Safe refactoring with moved blocks"
+echo "  ✅ Resource removal with removed blocks (Terraform 1.7+)"
+echo "  ✅ Legacy CLI import workflow"
+echo "  ✅ Bulk import with for_each"
+echo "  ✅ Complete migration scenario"
+echo ""
+echo "Key Takeaways:"
+echo "  - Import blocks are declarative and version-controlled"
+echo "  - Configuration generation saves time and reduces errors"
+echo "  - moved blocks enable safe refactoring"
+echo "  - removed blocks provide declarative state removal"
+echo "  - Always backup state before manipulation"
+echo "  - Validate with terraform plan after import"
+echo ""
+echo "All demo directories have been configured with complete solutions."
+echo "Review each directory to see the implementation details."
+
+# Made with Bob

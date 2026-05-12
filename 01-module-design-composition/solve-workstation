@@ -1,0 +1,240 @@
+#!/bin/bash
+set -euxo pipefail
+
+# Challenge 1 Solve: Module Design & Composition
+# Auto-completes the challenge for skip functionality
+
+echo "=== Solving Challenge 1: Module Design & Composition ==="
+
+cd /root/terraform-workspace
+
+# ============================================================================
+# Create a complete working example with module composition
+# ============================================================================
+
+cat > main.tf << 'EOF'
+# Root Module - Module Composition Example
+# Demonstrates composing network and VM modules
+
+terraform {
+  required_version = ">= 1.14"
+  required_providers {
+    libvirt = {
+      source  = "dmacvicar/libvirt"
+      version = "~> 0.8"
+    }
+    local = {
+      source  = "hashicorp/local"
+      version = "~> 2.7"
+    }
+  }
+}
+
+provider "libvirt" {
+  uri = "qemu:///system"
+}
+
+# ============================================================================
+# Module Composition: Network + VMs
+# ============================================================================
+
+# Create application network
+module "app_network" {
+  source = "./modules/libvirt-network"
+  
+  name         = "app-network"
+  mode         = "nat"
+  domain       = "app.local"
+  addresses    = ["192.168.100.0/24"]
+  dhcp_enabled = true
+  autostart    = true
+}
+
+# Create web server VM
+module "web_server" {
+  source = "./modules/libvirt-vm"
+  
+  name       = "web-server"
+  memory     = 512
+  vcpu       = 1
+  network_id = module.app_network.id  # Composition: using network output!
+  autostart  = false
+  
+  cloud_init_user_data = <<-EOT
+    #cloud-config
+    hostname: web-server
+    fqdn: web-server.app.local
+    packages:
+      - nginx
+    runcmd:
+      - systemctl enable nginx
+      - systemctl start nginx
+  EOT
+}
+
+# Create API server VM
+module "api_server" {
+  source = "./modules/libvirt-vm"
+  
+  name       = "api-server"
+  memory     = 512
+  vcpu       = 1
+  network_id = module.app_network.id  # Composition: using network output!
+  autostart  = false
+  
+  cloud_init_user_data = <<-EOT
+    #cloud-config
+    hostname: api-server
+    fqdn: api-server.app.local
+  EOT
+}
+
+# Create database VM
+module "database" {
+  source = "./modules/libvirt-vm"
+  
+  name       = "database"
+  memory     = 1024
+  vcpu       = 2
+  network_id = module.app_network.id  # Composition: using network output!
+  autostart  = false
+  
+  cloud_init_user_data = <<-EOT
+    #cloud-config
+    hostname: database
+    fqdn: database.app.local
+  EOT
+}
+
+# ============================================================================
+# Example: Using app-config module
+# ============================================================================
+
+module "web_config" {
+  source = "./modules/app-config"
+  
+  app_name    = "web-app"
+  environment = "dev"
+  port        = 8080
+  log_level   = "debug"
+  debug_mode  = true
+  
+  tags = {
+    Team    = "platform"
+    Service = "web"
+  }
+  
+  env_overrides = {
+    max_connections = "100"
+    timeout         = "30s"
+  }
+}
+
+module "api_config" {
+  source = "./modules/app-config"
+  
+  app_name    = "api-service"
+  environment = "dev"
+  port        = 3000
+  log_level   = "info"
+  
+  tags = {
+    Team    = "platform"
+    Service = "api"
+  }
+}
+
+# ============================================================================
+# Example: moved block for refactoring
+# ============================================================================
+
+# Uncomment to demonstrate moved blocks:
+# moved {
+#   from = module.web_server
+#   to   = module.frontend_server
+# }
+EOF
+
+cat > outputs.tf << 'EOF'
+# Root Module Outputs
+
+output "network_info" {
+  description = "Network information"
+  value = {
+    id        = module.app_network.id
+    name      = module.app_network.name
+    bridge    = module.app_network.bridge
+    addresses = module.app_network.addresses
+  }
+}
+
+output "vms" {
+  description = "Information about all VMs"
+  value = {
+    web_server = {
+      id   = module.web_server.id
+      name = module.web_server.name
+    }
+    api_server = {
+      id   = module.api_server.id
+      name = module.api_server.name
+    }
+    database = {
+      id   = module.database.id
+      name = module.database.name
+    }
+  }
+}
+
+output "app_configs" {
+  description = "Application configuration directories"
+  value = {
+    web = module.web_config.config_dir
+    api = module.api_config.config_dir
+  }
+}
+EOF
+
+echo "✓ Created root module with module composition"
+
+# ============================================================================
+# Initialize and validate
+# ============================================================================
+
+echo "Initializing Terraform..."
+terraform init -no-color
+
+echo "Validating configuration..."
+terraform validate -no-color
+
+echo "Formatting code..."
+terraform fmt -recursive
+
+# ============================================================================
+# Create a plan (but don't apply - VMs take time)
+# ============================================================================
+
+echo "Creating execution plan..."
+terraform plan -out=tfplan -no-color > /tmp/plan.log 2>&1 || true
+
+echo ""
+echo "✓ Challenge 1 solved!"
+echo ""
+echo "Created:"
+echo "  - Three reusable modules (app-config, libvirt-network, libvirt-vm)"
+echo "  - Root module demonstrating composition"
+echo "  - Network module output used as VM module input"
+echo "  - Example moved block (commented)"
+echo ""
+echo "Key concepts demonstrated:"
+echo "  ✓ Module structure (main.tf, variables.tf, outputs.tf)"
+echo "  ✓ Input validation"
+echo "  ✓ Module composition (outputs as inputs)"
+echo "  ✓ Provider requirements"
+echo "  ✓ Documentation (README.md files)"
+echo ""
+echo "Ready to proceed to the next challenge!"
+
+exit 0
+
+# Made with Bob

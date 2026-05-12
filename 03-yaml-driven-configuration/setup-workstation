@@ -1,0 +1,527 @@
+#!/bin/bash
+set -euxo pipefail
+
+# Challenge 3 Setup: YAML-Driven Configuration
+# Pre-populate YAML files and example configurations
+
+echo "=== Challenge 3: YAML-Driven Configuration Setup ==="
+
+# Navigate to workspace
+cd /root/terraform-workspace
+
+# Clean any existing content
+rm -rf *
+
+# Create directory structure
+mkdir -p config/environments modules/yaml-validator
+
+echo "✓ Created directory structure"
+
+# ============================================================================
+# Basic YAML Configuration
+# ============================================================================
+
+cat > config/networks.yaml << 'EOF'
+# Network Configuration
+# This file defines all networks for the infrastructure
+
+networks:
+  - name: "web-network"
+    mode: "nat"
+    cidr: "10.10.0.0/24"
+    domain: "web.local"
+    autostart: true
+    description: "Network for web servers"
+  
+  - name: "app-network"
+    mode: "nat"
+    cidr: "10.20.0.0/24"
+    domain: "app.local"
+    autostart: true
+    description: "Network for application servers"
+  
+  - name: "db-network"
+    mode: "nat"
+    cidr: "10.30.0.0/24"
+    domain: "db.local"
+    autostart: true
+    description: "Network for database servers"
+EOF
+
+echo "✓ Created basic networks.yaml"
+
+# ============================================================================
+# Complex Infrastructure YAML
+# ============================================================================
+
+cat > config/infrastructure.yaml << 'EOF'
+# Complete Infrastructure Configuration
+# Defines networks, storage, and VMs
+
+infrastructure:
+  # Network Configuration
+  networks:
+    web:
+      cidr: "192.168.10.0/24"
+      domain: "web.local"
+      mode: "nat"
+    
+    app:
+      cidr: "192.168.20.0/24"
+      domain: "app.local"
+      mode: "nat"
+    
+    db:
+      cidr: "192.168.30.0/24"
+      domain: "db.local"
+      mode: "nat"
+  
+  # Storage Configuration
+  storage:
+    pools:
+      default:
+        type: "dir"
+        path: "/var/lib/libvirt/images/default"
+      
+      fast:
+        type: "dir"
+        path: "/var/lib/libvirt/images/fast"
+  
+  # VM Configuration
+  vms:
+    web-01:
+      network: "web"
+      pool: "default"
+      memory_mb: 1024
+      vcpu: 2
+      disk_gb: 10
+      autostart: true
+      tags:
+        role: "webserver"
+        tier: "frontend"
+    
+    web-02:
+      network: "web"
+      pool: "default"
+      memory_mb: 1024
+      vcpu: 2
+      disk_gb: 10
+      autostart: true
+      tags:
+        role: "webserver"
+        tier: "frontend"
+    
+    app-01:
+      network: "app"
+      pool: "fast"
+      memory_mb: 2048
+      vcpu: 4
+      disk_gb: 20
+      autostart: true
+      tags:
+        role: "application"
+        tier: "backend"
+    
+    db-01:
+      network: "db"
+      pool: "fast"
+      memory_mb: 4096
+      vcpu: 4
+      disk_gb: 50
+      autostart: true
+      tags:
+        role: "database"
+        tier: "data"
+
+# Environment-specific settings
+environment:
+  name: "development"
+  region: "us-east-1"
+  owner: "platform-team"
+  cost_center: "engineering"
+EOF
+
+echo "✓ Created complex infrastructure.yaml"
+
+# ============================================================================
+# Environment-Specific YAML Files
+# ============================================================================
+
+cat > config/environments/dev.yaml << 'EOF'
+environment:
+  name: "dev"
+  region: "us-east-1"
+  owner: "dev-team"
+  
+infrastructure:
+  networks:
+    web:
+      cidr: "192.168.10.0/24"
+      domain: "web.dev.local"
+  
+  vms:
+    web-01:
+      network: "web"
+      memory_mb: 512
+      vcpu: 1
+      disk_gb: 5
+      autostart: false
+EOF
+
+cat > config/environments/staging.yaml << 'EOF'
+environment:
+  name: "staging"
+  region: "us-east-1"
+  owner: "qa-team"
+  
+infrastructure:
+  networks:
+    web:
+      cidr: "192.168.10.0/24"
+      domain: "web.staging.local"
+  
+  vms:
+    web-01:
+      network: "web"
+      memory_mb: 1024
+      vcpu: 2
+      disk_gb: 10
+      autostart: true
+    
+    web-02:
+      network: "web"
+      memory_mb: 1024
+      vcpu: 2
+      disk_gb: 10
+      autostart: true
+EOF
+
+cat > config/environments/prod.yaml << 'EOF'
+environment:
+  name: "prod"
+  region: "us-east-1"
+  owner: "platform-team"
+  
+infrastructure:
+  networks:
+    web:
+      cidr: "192.168.10.0/24"
+      domain: "web.prod.local"
+  
+  vms:
+    web-01:
+      network: "web"
+      memory_mb: 2048
+      vcpu: 4
+      disk_gb: 20
+      autostart: true
+    
+    web-02:
+      network: "web"
+      memory_mb: 2048
+      vcpu: 4
+      disk_gb: 20
+      autostart: true
+    
+    web-03:
+      network: "web"
+      memory_mb: 2048
+      vcpu: 4
+      disk_gb: 20
+      autostart: true
+EOF
+
+echo "✓ Created environment-specific YAML files"
+
+# ============================================================================
+# YAML Validator Module
+# ============================================================================
+
+cat > modules/yaml-validator/variables.tf << 'EOF'
+variable "config_file" {
+  description = "Path to YAML configuration file"
+  type        = string
+}
+
+variable "required_keys" {
+  description = "Required top-level keys"
+  type        = list(string)
+  default     = []
+}
+
+variable "schema_version" {
+  description = "Expected schema version"
+  type        = string
+  default     = "1.0"
+}
+EOF
+
+cat > modules/yaml-validator/main.tf << 'EOF'
+terraform {
+  required_version = ">= 1.14"
+}
+
+locals {
+  # Parse YAML
+  config = yamldecode(file(var.config_file))
+  
+  # Check required keys
+  missing_keys = [
+    for key in var.required_keys :
+    key if !contains(keys(local.config), key)
+  ]
+  
+  # Validation checks
+  has_all_keys = length(local.missing_keys) == 0
+}
+
+# Validation: Required keys present
+resource "terraform_data" "validate_keys" {
+  lifecycle {
+    precondition {
+      condition     = local.has_all_keys
+      error_message = "Missing required keys: ${join(", ", local.missing_keys)}"
+    }
+  }
+}
+EOF
+
+cat > modules/yaml-validator/outputs.tf << 'EOF'
+output "config" {
+  description = "Parsed and validated configuration"
+  value       = local.config
+}
+
+output "validation_passed" {
+  description = "Whether validation passed"
+  value       = local.has_all_keys
+}
+EOF
+
+echo "✓ Created YAML validator module"
+
+# ============================================================================
+# Example Terraform Configurations
+# ============================================================================
+
+cat > main.tf.example << 'EOF'
+# Example: Basic YAML Configuration
+# Rename to main.tf to use
+
+terraform {
+  required_version = ">= 1.14"
+  required_providers {
+    libvirt = {
+      source  = "dmacvicar/libvirt"
+      version = "~> 0.8"
+    }
+  }
+}
+
+provider "libvirt" {
+  uri = "qemu:///system"
+}
+
+# Parse YAML configuration
+locals {
+  network_config = yamldecode(file("${path.module}/config/networks.yaml"))
+  
+  # Convert list to map for for_each
+  networks = {
+    for net in local.network_config.networks :
+    net.name => net
+  }
+}
+
+# Create networks from YAML
+resource "libvirt_network" "networks" {
+  for_each = local.networks
+  
+  name      = each.value.name
+  mode      = each.value.mode
+  addresses = [each.value.cidr]
+  domain    = each.value.domain
+  autostart = each.value.autostart
+  
+  dhcp {
+    enabled = true
+  }
+}
+EOF
+
+cat > infrastructure.tf.example << 'EOF'
+# Example: Complex Infrastructure from YAML
+# Demonstrates nested YAML structures
+
+# Parse infrastructure configuration
+locals {
+  infra_config = yamldecode(file("${path.module}/config/infrastructure.yaml"))
+  
+  # Extract sections
+  networks = local.infra_config.infrastructure.networks
+  pools    = local.infra_config.infrastructure.storage.pools
+  vms      = local.infra_config.infrastructure.vms
+  env      = local.infra_config.environment
+}
+
+# Create networks
+resource "libvirt_network" "networks" {
+  for_each = local.networks
+  
+  name      = "${local.env.name}-${each.key}-network"
+  mode      = each.value.mode
+  addresses = [each.value.cidr]
+  domain    = each.value.domain
+  autostart = true
+  
+  dhcp {
+    enabled = true
+  }
+}
+
+# Create storage pools
+resource "libvirt_pool" "pools" {
+  for_each = local.pools
+  
+  name = "${local.env.name}-${each.key}-pool"
+  type = each.value.type
+  path = each.value.path
+}
+
+# Create VM volumes
+resource "libvirt_volume" "vm_disks" {
+  for_each = local.vms
+  
+  name   = "${local.env.name}-${each.key}.qcow2"
+  pool   = libvirt_pool.pools[each.value.pool].name
+  format = "qcow2"
+  size   = each.value.disk_gb * 1073741824
+}
+
+# Create VMs
+resource "libvirt_domain" "vms" {
+  for_each = local.vms
+  
+  name      = "${local.env.name}-${each.key}"
+  memory    = each.value.memory_mb
+  vcpu      = each.value.vcpu
+  autostart = each.value.autostart
+  
+  disk {
+    volume_id = libvirt_volume.vm_disks[each.key].id
+  }
+  
+  network_interface {
+    network_id = libvirt_network.networks[each.value.network].id
+  }
+  
+  console {
+    type        = "pty"
+    target_type = "serial"
+    target_port = "0"
+  }
+}
+EOF
+
+cat > environments.tf.example << 'EOF'
+# Example: Multi-Environment Configuration
+# Uses environment-specific YAML files
+
+variable "environment" {
+  description = "Environment to deploy (dev, staging, prod)"
+  type        = string
+  default     = "dev"
+  
+  validation {
+    condition     = contains(["dev", "staging", "prod"], var.environment)
+    error_message = "environment must be dev, staging, or prod"
+  }
+}
+
+# Load environment-specific configuration
+locals {
+  env_config = yamldecode(
+    file("${path.module}/config/environments/${var.environment}.yaml")
+  )
+  
+  environment  = local.env_config.environment
+  networks     = local.env_config.infrastructure.networks
+  vms          = local.env_config.infrastructure.vms
+}
+
+# Create resources from environment config
+resource "libvirt_network" "env_networks" {
+  for_each = local.networks
+  
+  name      = "${local.environment.name}-${each.key}-network"
+  mode      = "nat"
+  addresses = [each.value.cidr]
+  domain    = each.value.domain
+  autostart = true
+  
+  dhcp {
+    enabled = true
+  }
+}
+EOF
+
+echo "✓ Created example Terraform configurations"
+
+# ============================================================================
+# Create README
+# ============================================================================
+
+cat > README.md << 'EOF'
+# Challenge 3: YAML-Driven Configuration
+
+This workspace demonstrates YAML-driven infrastructure patterns.
+
+## YAML Files
+
+### Basic Configuration
+- `config/networks.yaml` - Simple network configuration
+
+### Complex Configuration
+- `config/infrastructure.yaml` - Complete infrastructure (networks, storage, VMs)
+
+### Environment-Specific
+- `config/environments/dev.yaml` - Development environment (1 VM)
+- `config/environments/staging.yaml` - Staging environment (2 VMs)
+- `config/environments/prod.yaml` - Production environment (3 VMs)
+
+## Modules
+
+- `modules/yaml-validator` - Validates YAML configuration
+
+## Example Files
+
+- `main.tf.example` - Basic YAML parsing
+- `infrastructure.tf.example` - Complex YAML structures
+- `environments.tf.example` - Multi-environment pattern
+
+## Getting Started
+
+1. Review the YAML files in `config/`
+2. Follow the challenge instructions
+3. Test YAML-driven infrastructure
+4. Understand configuration-as-data patterns
+
+Happy learning! 🚀
+EOF
+
+echo "✓ Setup complete!"
+echo ""
+echo "Workspace ready at: /root/terraform-workspace"
+echo "YAML files created:"
+echo "  - config/networks.yaml (basic)"
+echo "  - config/infrastructure.yaml (complex)"
+echo "  - config/environments/*.yaml (multi-env)"
+echo ""
+echo "Modules created:"
+echo "  - modules/yaml-validator"
+echo ""
+echo "Follow the challenge instructions to master YAML-driven configuration!"
+
+exit 0
+
+# Made with Bob

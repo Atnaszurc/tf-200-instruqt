@@ -1,0 +1,58 @@
+#!/bin/bash
+set -euxo pipefail
+
+# Track-level cleanup script for TF-200 Modules Lab
+# This runs when the track ends
+
+echo "=== TF-200 Lab Cleanup ==="
+echo "Cleaning up resources..."
+
+# Navigate to workspace
+cd /root/terraform-workspace || true
+
+# Destroy any Terraform-managed infrastructure
+for dir in $(find . -name "*.tf" -exec dirname {} \; | sort -u); do
+    if [ -d "$dir" ]; then
+        echo "Cleaning up Terraform resources in $dir..."
+        cd "$dir"
+        terraform destroy -auto-approve 2>/dev/null || true
+        cd /root/terraform-workspace
+    fi
+done
+
+# Stop and remove all Libvirt VMs
+echo "Stopping Libvirt VMs..."
+for vm in $(virsh list --all --name); do
+    if [ -n "$vm" ]; then
+        virsh destroy "$vm" 2>/dev/null || true
+        virsh undefine "$vm" --remove-all-storage 2>/dev/null || true
+    fi
+done
+
+# Clean up Libvirt networks (except default)
+echo "Cleaning up Libvirt networks..."
+for net in $(virsh net-list --all --name | grep -v "^default$"); do
+    if [ -n "$net" ]; then
+        virsh net-destroy "$net" 2>/dev/null || true
+        virsh net-undefine "$net" 2>/dev/null || true
+    fi
+done
+
+# Clean up Libvirt storage pools (except default)
+echo "Cleaning up Libvirt storage pools..."
+for pool in $(virsh pool-list --all --name | grep -v "^default$"); do
+    if [ -n "$pool" ]; then
+        virsh pool-destroy "$pool" 2>/dev/null || true
+        virsh pool-undefine "$pool" 2>/dev/null || true
+    fi
+done
+
+# Remove workspace directory
+echo "Removing workspace..."
+rm -rf /root/terraform-workspace
+
+echo "✓ Cleanup complete!"
+
+exit 0
+
+# Made with Bob
