@@ -12,27 +12,30 @@ resource "libvirt_domain" "vms" {
   for_each = var.vms
 
   name      = each.key
+  type      = "kvm"
   memory    = each.value.memory_mb
   vcpu      = each.value.vcpu_count
   autostart = var.autostart
 
-  os {
+  os = {
     type    = "hvm"
     arch    = "x86_64"
     machine = "pc"
   }
 
-  disk {
-    volume_id = each.value.volume_id
-  }
+  devices = {
+    disks = [{
+      volume_id = each.value.volume_id
+    }]
 
-  network_interface {
-    network_id = var.network_id
-  }
+    interfaces = [{
+      network_id = var.network_id
+    }]
 
-  console {
-    type        = "pty"
-    target_type = "serial"
-    target_port = "0"
+    consoles = [{
+      type        = "pty"
+      target_type = "serial"
+      target_port = "0"
+    }]
   }
 }

@@ -12,5 +12,5 @@ output "name" {
 
 output "network_interfaces" {
   description = "Network interfaces of the VM"
-  value       = libvirt_domain.vm.network_interface
+  value       = libvirt_domain.vm.devices.interfaces
 }

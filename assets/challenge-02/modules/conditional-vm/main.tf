@@ -27,14 +27,25 @@ locals {
 }
 
 # Conditional network creation
-resource "libvirt_network" "network" {
-}-${var.environment}-network"
-  mode      = "nat"
-  addresses = ["192.168.210.0/24"]
+resource "libvirt_network" "this" {
+  count = var.create_network ? 1 : 0
+
+  name      = "${var.app_name}-${var.environment}-network"
   autostart = true
 
-  dhcp {
-    enabled = true
+  ips = [{
+    address = "192.168.210.1"
+    prefix  = 24
+    dhcp = {
+      ranges = [{
+        start = "192.168.210.2"
+        end   = "192.168.210.254"
+      }]
+    }
+  }]
+
+  forward = {
+    mode = "nat"
   }
 }
 
@@ -42,10 +53,15 @@ resource "libvirt_network" "network" {
 resource "libvirt_volume" "vm_disks" {
   for_each = var.vms
 
-  name   = "${var.app_name}-${var.environment}-${each.key}.qcow2"
-  pool   = "default"
-  format = "qcow2"
-  size   = 1073741824 # 1GB
+  name     = "${var.app_name}-${var.environment}-${each.key}.qcow2"
+  pool     = "default"
+  capacity = 1073741824 # 1GB
+
+  target = {
+    format = {
+      type = "qcow2"
+    }
+  }
 }
 
 # Create VMs
@@ -53,28 +69,31 @@ resource "libvirt_domain" "vms" {
   for_each = var.vms
 
   name      = "${var.app_name}-${var.environment}-${each.key}"
+  type      = "kvm"
   memory    = each.value.memory_mb
   vcpu      = each.value.vcpu_count
   autostart = local.autostart
 
-  os {
+  os = {
     type    = "hvm"
     arch    = "x86_64"
     machine = "pc"
   }
 
-  disk {
-    volume_id = libvirt_volume.vm_disks[each.key].id
-  }
+  devices = {
+    disks = [{
+      volume_id = libvirt_volume.vm_disks[each.key].id
+    }]
 
-  network_interface {
-    network_id = local.network_id
-  }
+    interfaces = [{
+      network_id = local.network_id
+    }]
 
-  console {
-    type        = "pty"
-    target_type = "serial"
-    target_port = "0"
+    consoles = [{
+      type        = "pty"
+      target_type = "serial"
+      target_port = "0"
+    }]
   }
 }
 
