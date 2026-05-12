@@ -1,47 +1,36 @@
 ---
 slug: advanced-module-patterns
-id: xk8j9mq2nlvp
+id: hg45zpeebjht
 type: challenge
 title: 'Challenge 2: Advanced Module Patterns'
-teaser: Master nested modules, conditional resources, for_each patterns, and canary deployments
+teaser: Master nested modules, conditional resources, for_each patterns, and canary
+  deployments
 notes:
 - type: text
-  contents: |
-    # Challenge 2: Advanced Module Patterns
-
-    In this challenge, you'll learn enterprise-grade module patterns that scale:
-
-    ## What You'll Learn
-
-    ✅ **Nested Module Hierarchies** - Compose complex infrastructure from simple layers
-    
-    ✅ **Conditional Resources** - Create resources based on variables and environment
-    
-    ✅ **For_Each Patterns** - Manage multiple similar resources with stable addresses
-    
-    ✅ **Canary Deployments** - Implement gradual rollout strategies
-    
-    ✅ **Module Versioning** - Use semantic versioning and version constraints
-
-    ## Why This Matters
-
-    Simple modules work for small projects, but enterprise infrastructure needs patterns that:
-    - Scale across complex environments
-    - Enable safe deployments
-    - Provide clear separation of concerns
-    - Support gradual rollouts with easy rollback
-
-    Let's master these advanced patterns! 🚀
+  contents: "# Challenge 2: Advanced Module Patterns\n\nIn this challenge, you'll
+    learn enterprise-grade module patterns that scale:\n\n## What You'll Learn\n\n✅
+    **Nested Module Hierarchies** - Compose complex infrastructure from simple layers\n\n✅
+    **Conditional Resources** - Create resources based on variables and environment\n\n✅
+    **For_Each Patterns** - Manage multiple similar resources with stable addresses\n\n✅
+    **Canary Deployments** - Implement gradual rollout strategies\n\n✅ **Module Versioning**
+    - Use semantic versioning and version constraints\n\n## Why This Matters\n\nSimple
+    modules work for small projects, but enterprise infrastructure needs patterns
+    that:\n- Scale across complex environments\n- Enable safe deployments\n- Provide
+    clear separation of concerns\n- Support gradual rollouts with easy rollback\n\nLet's
+    master these advanced patterns! \U0001F680\n"
 tabs:
-- title: Shell
+- id: puy4ihtmitdm
+  title: Shell
   type: terminal
   hostname: workstation
-- title: Editor
+- id: 1623fi81iy4t
+  title: Editor
   type: code
   hostname: workstation
   path: /root/terraform-workspace
 difficulty: basic
 timelimit: 5400
+enhanced_loading: null
 ---
 
 # Challenge 2: Advanced Module Patterns
@@ -142,7 +131,7 @@ resource "libvirt_network" "this" {
   domain    = var.domain
   addresses = var.addresses
   autostart = true
-  
+
   dhcp {
     enabled = true
   }
@@ -227,7 +216,7 @@ resource "libvirt_pool" "this" {
 
 resource "libvirt_volume" "volumes" {
   for_each = var.volumes
-  
+
   name   = "${each.key}.${each.value.format}"
   pool   = libvirt_pool.this.name
   format = each.value.format
@@ -301,20 +290,20 @@ terraform {
 
 resource "libvirt_domain" "vms" {
   for_each = var.vms
-  
+
   name      = each.key
   memory    = each.value.memory_mb
   vcpu      = each.value.vcpu_count
   autostart = var.autostart
-  
+
   disk {
     volume_id = each.value.volume_id
   }
-  
+
   network_interface {
     network_id = var.network_id
   }
-  
+
   console {
     type        = "pty"
     target_type = "serial"
@@ -356,7 +345,7 @@ variable "app_name" {
 variable "environment" {
   description = "Environment (dev, staging, prod)"
   type        = string
-  
+
   validation {
     condition     = contains(["dev", "staging", "prod"], var.environment)
     error_message = "environment must be dev, staging, or prod"
@@ -389,7 +378,7 @@ terraform {
 # Layer 1: Network
 module "network" {
   source = "../network"
-  
+
   network_name = "${var.app_name}-${var.environment}-network"
   network_mode = "nat"
   addresses    = ["192.168.200.0/24"]
@@ -399,11 +388,11 @@ module "network" {
 # Layer 2: Storage
 module "storage" {
   source = "../storage"
-  
+
   pool_name = "${var.app_name}-${var.environment}-pool"
   pool_type = "dir"
   pool_path = "/var/lib/libvirt/images/${var.app_name}-${var.environment}"
-  
+
   volumes = {
     for vm_name, vm_config in var.vms :
     vm_name => {
@@ -416,10 +405,10 @@ module "storage" {
 # Layer 3: Compute
 module "compute" {
   source = "../compute"
-  
+
   network_id = module.network.id
   autostart  = var.environment == "prod"
-  
+
   vms = {
     for vm_name, vm_config in var.vms :
     "${var.app_name}-${var.environment}-${vm_name}" => {
@@ -428,7 +417,7 @@ module "compute" {
       volume_id  = module.storage.volume_ids[vm_name]
     }
   }
-  
+
   depends_on = [module.storage]
 }
 ```
@@ -490,10 +479,10 @@ provider "libvirt" {
 # Simple interface - complex infrastructure!
 module "my_app" {
   source = "./modules/app-stack"
-  
+
   app_name    = "webapp"
   environment = "dev"
-  
+
   vms = {
     web = {
       memory_mb  = 512
@@ -661,13 +650,13 @@ terraform {
 locals {
   # Use created or existing network
   network_id = var.create_network ? libvirt_network.this[0].id : var.existing_network_id
-  
+
   # Auto-start only in production
   autostart = var.environment == "prod"
-  
+
   # Monitoring enabled in staging and prod
   monitoring_enabled = var.enable_monitoring && contains(["staging", "prod"], var.environment)
-  
+
   # Backup enabled only in prod
   backup_enabled = var.enable_backup && var.environment == "prod"
 }
@@ -675,12 +664,12 @@ locals {
 # Conditional network creation
 resource "libvirt_network" "this" {
   count = var.create_network ? 1 : 0
-  
+
   name      = "${var.app_name}-${var.environment}-network"
   mode      = "nat"
   addresses = ["192.168.210.0/24"]
   autostart = true
-  
+
   dhcp {
     enabled = true
   }
@@ -689,7 +678,7 @@ resource "libvirt_network" "this" {
 # Create volumes for VMs
 resource "libvirt_volume" "vm_disks" {
   for_each = var.vms
-  
+
   name   = "${var.app_name}-${var.environment}-${each.key}.qcow2"
   pool   = "default"
   format = "qcow2"
@@ -699,20 +688,20 @@ resource "libvirt_volume" "vm_disks" {
 # Create VMs
 resource "libvirt_domain" "vms" {
   for_each = var.vms
-  
+
   name      = "${var.app_name}-${var.environment}-${each.key}"
   memory    = each.value.memory_mb
   vcpu      = each.value.vcpu_count
   autostart = local.autostart
-  
+
   disk {
     volume_id = libvirt_volume.vm_disks[each.key].id
   }
-  
+
   network_interface {
     network_id = local.network_id
   }
-  
+
   console {
     type        = "pty"
     target_type = "serial"
@@ -723,13 +712,13 @@ resource "libvirt_domain" "vms" {
 # Conditional monitoring configuration
 resource "local_file" "monitoring_config" {
   count = local.monitoring_enabled ? 1 : 0
-  
+
   filename = "/tmp/${var.app_name}-${var.environment}-monitoring.conf"
   content  = <<-EOT
     # Monitoring Configuration
     # Environment: ${var.environment}
     # VMs: ${join(", ", keys(var.vms))}
-    
+
     monitoring_enabled = true
     check_interval     = ${var.environment == "prod" ? "30s" : "60s"}
     alert_threshold    = ${var.environment == "prod" ? "90" : "95"}
@@ -739,12 +728,12 @@ resource "local_file" "monitoring_config" {
 # Conditional backup configuration
 resource "local_file" "backup_config" {
   count = local.backup_enabled ? 1 : 0
-  
+
   filename = "/tmp/${var.app_name}-${var.environment}-backup.conf"
   content  = <<-EOT
     # Backup Configuration
     # Environment: ${var.environment}
-    
+
     backup_enabled  = true
     backup_schedule = "0 2 * * *"  # Daily at 2 AM
     retention_days  = 30
@@ -790,13 +779,13 @@ Update your `main.tf`:
 # Development environment - minimal features
 module "dev_app" {
   source = "./modules/conditional-vm"
-  
+
   app_name        = "myapp"
   environment     = "dev"
   create_network  = true
   enable_monitoring = false
   enable_backup   = false
-  
+
   vms = {
     web = { memory_mb = 512, vcpu_count = 1 }
   }
@@ -805,13 +794,13 @@ module "dev_app" {
 # Production environment - all features
 module "prod_app" {
   source = "./modules/conditional-vm"
-  
+
   app_name        = "myapp"
   environment     = "prod"
   create_network  = true
   enable_monitoring = true
   enable_backup   = true
-  
+
   vms = {
     web-01 = { memory_mb = 2048, vcpu_count = 2 }
     web-02 = { memory_mb = 2048, vcpu_count = 2 }
@@ -866,7 +855,7 @@ variable "vms" {
 
 resource "libvirt_domain" "vm" {
   for_each = var.vms
-  
+
   name   = each.key
   memory = each.value.memory_mb
   vcpu   = each.value.vcpu_count
@@ -882,7 +871,7 @@ variable "vm_names" {
 
 resource "libvirt_domain" "vm" {
   for_each = var.vm_names
-  
+
   name   = each.key
   memory = 512
   vcpu   = 1
@@ -990,7 +979,7 @@ variable "app_name" {
 variable "total_instances" {
   description = "Total number of instances"
   type        = number
-  
+
   validation {
     condition     = var.total_instances >= 1 && var.total_instances <= 10
     error_message = "total_instances must be between 1 and 10"
@@ -1007,7 +996,7 @@ variable "canary_percentage" {
   description = "Percentage of instances for canary (0-100)"
   type        = number
   default     = 0
-  
+
   validation {
     condition     = var.canary_percentage >= 0 && var.canary_percentage <= 100
     error_message = "canary_percentage must be between 0 and 100"
@@ -1063,14 +1052,14 @@ terraform {
 
 locals {
   # Calculate instance counts
-  stable_count = var.enable_canary ? 
-    floor(var.total_instances * (1 - var.canary_percentage / 100)) : 
+  stable_count = var.enable_canary ?
+    floor(var.total_instances * (1 - var.canary_percentage / 100)) :
     var.total_instances
-  
-  canary_count = var.enable_canary ? 
-    ceil(var.total_instances * (var.canary_percentage / 100)) : 
+
+  canary_count = var.enable_canary ?
+    ceil(var.total_instances * (var.canary_percentage / 100)) :
     0
-  
+
   # Verify counts add up
   total_check = local.stable_count + local.canary_count
 }
@@ -1078,7 +1067,7 @@ locals {
 # Stable version volumes
 resource "libvirt_volume" "stable" {
   count = local.stable_count
-  
+
   name   = "${var.app_name}-stable-${count.index + 1}.qcow2"
   pool   = "default"
   format = "qcow2"
@@ -1088,7 +1077,7 @@ resource "libvirt_volume" "stable" {
 # Canary version volumes
 resource "libvirt_volume" "canary" {
   count = local.canary_count
-  
+
   name   = "${var.app_name}-canary-${count.index + 1}.qcow2"
   pool   = "default"
   format = "qcow2"
@@ -1098,26 +1087,26 @@ resource "libvirt_volume" "canary" {
 # Stable version instances
 resource "libvirt_domain" "stable" {
   count = local.stable_count
-  
+
   name      = "${var.app_name}-stable-${count.index + 1}"
   memory    = var.memory_mb
   vcpu      = var.vcpu_count
   autostart = false
-  
+
   disk {
     volume_id = libvirt_volume.stable[count.index].id
   }
-  
+
   network_interface {
     network_id = var.network_id
   }
-  
+
   console {
     type        = "pty"
     target_type = "serial"
     target_port = "0"
   }
-  
+
   # Metadata to identify version
   xml {
     xslt = <<-EOT
@@ -1134,20 +1123,20 @@ resource "libvirt_domain" "stable" {
 # Canary version instances
 resource "libvirt_domain" "canary" {
   count = local.canary_count
-  
+
   name      = "${var.app_name}-canary-${count.index + 1}"
   memory    = var.memory_mb
   vcpu      = var.vcpu_count
   autostart = false
-  
+
   disk {
     volume_id = libvirt_volume.canary[count.index].id
   }
-  
+
   network_interface {
     network_id = var.network_id
   }
-  
+
   console {
     type        = "pty"
     target_type = "serial"
@@ -1216,7 +1205,7 @@ Update `main.tf` to test canary deployment:
 # First, create a network for the canary deployment
 module "canary_network" {
   source = "./modules/network"
-  
+
   network_name = "canary-network"
   network_mode = "nat"
   addresses    = ["192.168.220.0/24"]
@@ -1225,7 +1214,7 @@ module "canary_network" {
 # Phase 1: 100% stable (baseline)
 module "app_phase1" {
   source = "./modules/canary-deployment"
-  
+
   app_name       = "myapp"
   total_instances = 5
   enable_canary   = false
@@ -1236,7 +1225,7 @@ module "app_phase1" {
 # Phase 2: 90% stable, 10% canary
 # module "app_phase2" {
 #   source = "./modules/canary-deployment"
-#   
+#
 #   app_name          = "myapp"
 #   total_instances   = 5
 #   enable_canary     = true
@@ -1249,7 +1238,7 @@ module "app_phase1" {
 # Phase 3: 50% stable, 50% canary
 # module "app_phase3" {
 #   source = "./modules/canary-deployment"
-#   
+#
 #   app_name          = "myapp"
 #   total_instances   = 5
 #   enable_canary     = true

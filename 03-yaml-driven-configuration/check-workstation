@@ -1,5 +1,5 @@
 #!/bin/bash
-set -euo pipefail
+set -uo pipefail
 
 # Challenge 3 Check: YAML-Driven Configuration
 # Validates learner progress through YAML-driven patterns
@@ -48,6 +48,35 @@ check_yaml_valid() {
     return 1
   fi
 }
+
+# ============================================================================
+# Pre-check: Verify learner has activated the configuration
+# ============================================================================
+
+echo ""
+echo "=== Pre-check: Configuration Activation ==="
+
+# Check that main.tf exists (learner should create it from main.tf.example)
+if [[ ! -f "main.tf" ]]; then
+  echo "✗ main.tf not found"
+  echo "  Hint: Copy main.tf.example to main.tf to get started"
+  echo ""
+  echo "Run: cp main.tf.example main.tf"
+  ((ERRORS++))
+  exit 1
+else
+  echo "✓ main.tf exists"
+  
+  # Check if it uses yamldecode
+  if ! grep -q "yamldecode" main.tf; then
+    echo "✗ main.tf doesn't use yamldecode()"
+    echo "  Hint: The example file shows how to parse YAML files"
+    ((ERRORS++))
+    exit 1
+  else
+    echo "✓ main.tf uses yamldecode()"
+  fi
+fi
 
 # ============================================================================
 # Section 1: Basic YAML Configuration

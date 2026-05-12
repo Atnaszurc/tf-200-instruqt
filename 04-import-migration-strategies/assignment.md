@@ -1,6 +1,6 @@
 ---
 slug: import-migration-strategies
-id: 4qm8xzjvnwkr
+id: yppscfpzgdqi
 type: challenge
 title: 'Challenge 4: Import & Migration Strategies'
 teaser: Master importing existing infrastructure and migrating legacy code to Terraform
@@ -111,15 +111,18 @@ notes:
 
     Let's practice safe state manipulation!
 tabs:
-- title: Editor
+- id: unuwkzrakn9u
+  title: Editor
   type: code
   hostname: workstation
   path: /root/terraform
-- title: Terminal
+- id: hjqfukox02po
+  title: Terminal
   type: terminal
   hostname: workstation
 difficulty: basic
 timelimit: 3600
+enhanced_loading: null
 ---
 
 🎯 Challenge 4: Import & Migration Strategies
@@ -695,7 +698,7 @@ import {
 
 resource "libvirt_network" "networks" {
   for_each = local.networks_to_import
-  
+
   name      = each.value
   mode      = "nat"
   addresses = ["10.${index(keys(local.networks_to_import), each.key) + 10}.0.0/24"]
@@ -758,16 +761,16 @@ import {
 
 resource "libvirt_network" "tiers" {
   for_each = local.networks
-  
+
   name      = each.value.name
   mode      = "nat"
   addresses = [each.value.cidr]
   autostart = true
-  
+
   dns {
     enabled = true
   }
-  
+
   dhcp {
     enabled = true
   }
@@ -957,7 +960,7 @@ cat >> main.tf << 'EOF'
 # Hand off to network team
 removed {
   from = libvirt_network.handoff
-  
+
   lifecycle {
     destroy = false
   }

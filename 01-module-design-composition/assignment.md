@@ -1,80 +1,67 @@
 ---
 slug: module-design-composition
-id: 01-module-design-composition
+id: ve0mggnklsj8
 type: challenge
 title: 'Challenge 1: Module Design & Composition'
 teaser: Master professional module design, composition patterns, and refactoring techniques
 notes:
 - type: text
-  contents: |
-    # Challenge 1: Module Design & Composition
-    
-    ## What You'll Learn
-    
-    In this challenge, you'll master the fundamentals of Terraform module design:
-    
-    - ✅ Module structure and design principles
-    - ✅ Creating reusable modules
-    - ✅ Module composition patterns
-    - ✅ Refactoring with `moved` blocks
-    - ✅ Dynamic module sources (Terraform 1.15+)
-    
-    ## Why This Matters
-    
-    Modules are the foundation of scalable, maintainable Terraform code. They enable:
-    - **Reusability**: Write once, use everywhere
-    - **Consistency**: Standardized infrastructure patterns
-    - **Collaboration**: Share modules across teams
-    - **Maintainability**: Easier to update and test
-    
-    ## Time Estimate
-    
-    ⏱️ **90 minutes** to complete all sections
-    
-    Ready to build professional Terraform modules? Let's begin! 🚀
+  contents: "# Challenge 1: Module Design & Composition\n\n## What You'll Learn\n\nIn
+    this challenge, you'll master the fundamentals of Terraform module design:\n\n-
+    ✅ Module structure and design principles\n- ✅ Creating reusable modules\n- ✅ Module
+    composition patterns\n- ✅ Refactoring with `moved` blocks\n- ✅ Dynamic module
+    sources (Terraform 1.15+)\n\n## Why This Matters\n\nModules are the foundation
+    of scalable, maintainable Terraform code. They enable:\n- **Reusability**: Write
+    once, use everywhere\n- **Consistency**: Standardized infrastructure patterns\n-
+    **Collaboration**: Share modules across teams\n- **Maintainability**: Easier to
+    update and test\n\n## Time Estimate\n\n⏱️ **90 minutes** to complete all sections\n\nReady
+    to build professional Terraform modules? Let's begin! \U0001F680\n"
 - type: text
   contents: |
     # Module Design Principles
-    
+
     Before we start building, let's understand the key principles:
-    
+
     ## 1. Single Responsibility
     Each module should do **one thing well**. Don't create a "kitchen sink" module.
-    
+
     ✅ Good: `network` module creates VPC, subnets, routing
     ❌ Bad: `infrastructure` module creates network, VMs, databases, monitoring
-    
+
     ## 2. Composability
     Modules should work together seamlessly. Outputs from one module become inputs to another.
-    
+
     ```hcl
     module "network" { ... }
-    
+
     module "vm" {
       network_id = module.network.network_id  # Composition!
     }
     ```
-    
+
     ## 3. Encapsulation
     Hide complexity inside modules. Users shouldn't need to know implementation details.
-    
+
     ## 4. Flexibility
     Use variables and optional attributes to support different use cases.
-    
+
     ## 5. Documentation
     Clear README, examples, and well-named variables are essential.
-    
+
     Let's apply these principles! →
 tabs:
-- title: Terminal
+- id: cgizfjcmnoyp
+  title: Terminal
   type: terminal
   hostname: workstation
-- title: Code Editor
+- id: d2yitwkintz5
+  title: Code Editor
   type: code
   hostname: workstation
   path: /root/terraform-workspace
 difficulty: basic
 timelimit: 5400
+enhanced_loading: null
 ---
 
 # Challenge 1: Module Design & Composition
@@ -179,11 +166,11 @@ Hide implementation details, expose only what's necessary:
 # Module hides complexity
 module "database" {
   source = "./modules/database"
-  
+
   # Simple inputs
   name     = "mydb"
   size     = "small"
-  
+
   # Module handles:
   # - Storage configuration
   # - Backup setup
@@ -258,7 +245,7 @@ cat > variables.tf << 'EOF'
 variable "app_name" {
   description = "Name of the application"
   type        = string
-  
+
   validation {
     condition     = can(regex("^[a-z][a-z0-9-]{1,30}[a-z0-9]$", var.app_name))
     error_message = "app_name must be 3-32 lowercase alphanumeric characters or hyphens."
@@ -268,7 +255,7 @@ variable "app_name" {
 variable "environment" {
   description = "Environment name (dev, staging, prod)"
   type        = string
-  
+
   validation {
     condition     = contains(["dev", "staging", "prod"], var.environment)
     error_message = "environment must be dev, staging, or prod."
@@ -279,7 +266,7 @@ variable "port" {
   description = "Application port number"
   type        = number
   default     = 8080
-  
+
   validation {
     condition     = var.port >= 1024 && var.port <= 65535
     error_message = "port must be between 1024 and 65535."
@@ -290,7 +277,7 @@ variable "log_level" {
   description = "Logging level"
   type        = string
   default     = "info"
-  
+
   validation {
     condition     = contains(["debug", "info", "warn", "error"], var.log_level)
     error_message = "log_level must be debug, info, warn, or error."
@@ -350,7 +337,7 @@ terraform {
 locals {
   # Build the full output directory path
   output_dir = "${var.base_dir}/${var.app_name}"
-  
+
   # Merge caller-supplied tags with module-managed tags
   all_tags = merge(var.tags, {
     Module      = "app-config"
@@ -367,7 +354,7 @@ resource "local_file" "app_config" {
     # Application Configuration
     # Managed by Terraform module: app-config
     # DO NOT EDIT MANUALLY
-    
+
     app_name    = "${var.app_name}"
     environment = "${var.environment}"
     port        = ${var.port}
@@ -383,7 +370,7 @@ resource "local_file" "env_overrides" {
   content         = <<-EOT
     # Environment Overrides: ${var.environment}
     # Generated by Terraform module: app-config
-    
+
     ${join("\n", [for k, v in var.env_overrides : "${k} = ${v}"])}
   EOT
 }
@@ -459,12 +446,12 @@ Creates application configuration files for different environments.
 ```hcl
 module "app_config" {
   source = "./modules/app-config"
-  
+
   app_name    = "my-app"
   environment = "dev"
   port        = 8080
   log_level   = "debug"
-  
+
   tags = {
     Team = "platform"
   }
@@ -516,18 +503,18 @@ terraform {
 # Development environment
 module "dev_config" {
   source = "./modules/app-config"
-  
+
   app_name    = "my-app"
   environment = "dev"
   port        = 8080
   log_level   = "debug"
   debug_mode  = true
-  
+
   tags = {
     Team    = "platform"
     Project = "demo"
   }
-  
+
   env_overrides = {
     cache_enabled = "true"
     max_connections = "100"
@@ -537,12 +524,12 @@ module "dev_config" {
 # Staging environment
 module "staging_config" {
   source = "./modules/app-config"
-  
+
   app_name    = "my-app"
   environment = "staging"
   port        = 8081
   log_level   = "info"
-  
+
   tags = {
     Team    = "platform"
     Project = "demo"
@@ -552,17 +539,17 @@ module "staging_config" {
 # Production environment
 module "prod_config" {
   source = "./modules/app-config"
-  
+
   app_name    = "my-app"
   environment = "prod"
   port        = 8443
   log_level   = "warn"
-  
+
   tags = {
     Team    = "platform"
     Project = "demo"
   }
-  
+
   env_overrides = {
     cache_enabled = "true"
     max_connections = "500"
@@ -633,7 +620,7 @@ cat > variables.tf << 'EOF'
 variable "name" {
   description = "Name of the network"
   type        = string
-  
+
   validation {
     condition     = can(regex("^[a-z][a-z0-9-]{1,30}[a-z0-9]$", var.name))
     error_message = "name must be 3-32 lowercase alphanumeric characters or hyphens."
@@ -644,7 +631,7 @@ variable "mode" {
   description = "Network mode (nat, route, bridge)"
   type        = string
   default     = "nat"
-  
+
   validation {
     condition     = contains(["nat", "route", "bridge"], var.mode)
     error_message = "mode must be nat, route, or bridge."
@@ -661,7 +648,7 @@ variable "addresses" {
   description = "List of IP address ranges for the network"
   type        = list(string)
   default     = ["192.168.100.0/24"]
-  
+
   validation {
     condition     = length(var.addresses) > 0
     error_message = "At least one address range must be specified."
@@ -704,7 +691,7 @@ resource "libvirt_network" "network" {
   domain    = var.domain
   addresses = var.addresses
   autostart = var.autostart
-  
+
   # DHCP configuration
   dynamic "dhcp" {
     for_each = var.dhcp_enabled ? [1] : []
@@ -763,7 +750,7 @@ cat > variables.tf << 'EOF'
 variable "name" {
   description = "Name of the VM"
   type        = string
-  
+
   validation {
     condition     = can(regex("^[a-z][a-z0-9-]{1,30}[a-z0-9]$", var.name))
     error_message = "name must be 3-32 lowercase alphanumeric characters or hyphens."
@@ -774,7 +761,7 @@ variable "memory" {
   description = "Memory in MB"
   type        = number
   default     = 512
-  
+
   validation {
     condition     = var.memory >= 256 && var.memory <= 8192
     error_message = "memory must be between 256 and 8192 MB."
@@ -785,7 +772,7 @@ variable "vcpu" {
   description = "Number of virtual CPUs"
   type        = number
   default     = 1
-  
+
   validation {
     condition     = var.vcpu >= 1 && var.vcpu <= 4
     error_message = "vcpu must be between 1 and 4."
@@ -836,15 +823,15 @@ resource "libvirt_domain" "vm" {
   memory    = var.memory
   vcpu      = var.vcpu
   autostart = var.autostart
-  
+
   disk {
     volume_id = libvirt_volume.vm_disk.id
   }
-  
+
   network_interface {
     network_id = var.network_id
   }
-  
+
   console {
     type        = "pty"
     target_type = "serial"
@@ -907,7 +894,7 @@ provider "libvirt" {
 # Create a network using our network module
 module "app_network" {
   source = "./modules/libvirt-network"
-  
+
   name        = "app-network"
   mode        = "nat"
   domain      = "app.local"
@@ -920,7 +907,7 @@ module "app_network" {
 # Notice how it uses the network module's output!
 module "web_server" {
   source = "./modules/libvirt-vm"
-  
+
   name       = "web-server"
   memory     = 512
   vcpu       = 1
@@ -931,7 +918,7 @@ module "web_server" {
 # Create API server VM
 module "api_server" {
   source = "./modules/libvirt-vm"
-  
+
   name       = "api-server"
   memory     = 512
   vcpu       = 1
@@ -942,7 +929,7 @@ module "api_server" {
 # Create database VM
 module "database" {
   source = "./modules/libvirt-vm"
-  
+
   name       = "database"
   memory     = 1024
   vcpu       = 2
@@ -1097,7 +1084,7 @@ provider "libvirt" {
 # Network module (unchanged)
 module "app_network" {
   source = "./modules/libvirt-network"
-  
+
   name         = "app-network"
   mode         = "nat"
   domain       = "app.local"
@@ -1114,7 +1101,7 @@ moved {
 
 module "web" {
   source = "./modules/libvirt-vm"
-  
+
   name       = "web-server"
   memory     = 512
   vcpu       = 1
@@ -1130,7 +1117,7 @@ moved {
 
 module "api" {
   source = "./modules/libvirt-vm"
-  
+
   name       = "api-server"
   memory     = 512
   vcpu       = 1
@@ -1146,7 +1133,7 @@ moved {
 
 module "db" {
   source = "./modules/libvirt-vm"
-  
+
   name       = "database"
   memory     = 1024
   vcpu       = 2

@@ -1,47 +1,35 @@
 ---
 slug: yaml-driven-configuration
-id: mk7p3nq4xlvr
+id: xnycw0yahec3
 type: challenge
 title: 'Challenge 3: YAML-Driven Configuration'
 teaser: Drive infrastructure from YAML files using configuration-as-data patterns
 notes:
 - type: text
-  contents: |
-    # Challenge 3: YAML-Driven Configuration
-
-    In this challenge, you'll learn to drive Terraform infrastructure from YAML configuration files.
-
-    ## What You'll Learn
-
-    ✅ **Parse YAML Files** - Use `yamldecode()` to read YAML configuration
-    
-    ✅ **Dynamic Resources** - Create resources from YAML data with for_each
-    
-    ✅ **Complex Structures** - Handle nested YAML objects and lists
-    
-    ✅ **Validation** - Validate YAML configuration in Terraform
-    
-    ✅ **Configuration-as-Data** - Separate infrastructure logic from configuration
-
-    ## Why This Matters
-
-    YAML-driven configuration enables:
-    - Non-technical users to manage infrastructure configuration
-    - GitOps workflows where config changes trigger deployments
-    - Clear separation between infrastructure logic and values
-    - Easier multi-environment management
-
-    Let's master configuration-as-data! 🚀
+  contents: "# Challenge 3: YAML-Driven Configuration\n\nIn this challenge, you'll
+    learn to drive Terraform infrastructure from YAML configuration files.\n\n## What
+    You'll Learn\n\n✅ **Parse YAML Files** - Use `yamldecode()` to read YAML configuration\n\n✅
+    **Dynamic Resources** - Create resources from YAML data with for_each\n\n✅ **Complex
+    Structures** - Handle nested YAML objects and lists\n\n✅ **Validation** - Validate
+    YAML configuration in Terraform\n\n✅ **Configuration-as-Data** - Separate infrastructure
+    logic from configuration\n\n## Why This Matters\n\nYAML-driven configuration enables:\n-
+    Non-technical users to manage infrastructure configuration\n- GitOps workflows
+    where config changes trigger deployments\n- Clear separation between infrastructure
+    logic and values\n- Easier multi-environment management\n\nLet's master configuration-as-data!
+    \U0001F680\n"
 tabs:
-- title: Shell
+- id: pubzhxtsnktq
+  title: Shell
   type: terminal
   hostname: workstation
-- title: Editor
+- id: xbcohyo1rnro
+  title: Editor
   type: code
   hostname: workstation
   path: /root/terraform-workspace
 difficulty: basic
 timelimit: 5400
+enhanced_loading: null
 ---
 
 # Challenge 3: YAML-Driven Configuration
@@ -101,14 +89,14 @@ networks:
     domain: "web.local"
     autostart: true
     description: "Network for web servers"
-  
+
   - name: "app-network"
     mode: "nat"
     cidr: "10.20.0.0/24"
     domain: "app.local"
     autostart: true
     description: "Network for application servers"
-  
+
   - name: "db-network"
     mode: "nat"
     cidr: "10.30.0.0/24"
@@ -139,7 +127,7 @@ provider "libvirt" {
 # Parse YAML configuration
 locals {
   network_config = yamldecode(file("${path.module}/config/networks.yaml"))
-  
+
   # Convert list to map for for_each
   networks = {
     for net in local.network_config.networks :
@@ -150,13 +138,13 @@ locals {
 # Create networks from YAML
 resource "libvirt_network" "networks" {
   for_each = local.networks
-  
+
   name      = each.value.name
   mode      = each.value.mode
   addresses = [each.value.cidr]
   domain    = each.value.domain
   autostart = each.value.autostart
-  
+
   dhcp {
     enabled = true
   }
@@ -232,28 +220,28 @@ infrastructure:
       cidr: "192.168.10.0/24"
       domain: "web.local"
       mode: "nat"
-    
+
     app:
       cidr: "192.168.20.0/24"
       domain: "app.local"
       mode: "nat"
-    
+
     db:
       cidr: "192.168.30.0/24"
       domain: "db.local"
       mode: "nat"
-  
+
   # Storage Configuration
   storage:
     pools:
       default:
         type: "dir"
         path: "/var/lib/libvirt/images/default"
-      
+
       fast:
         type: "dir"
         path: "/var/lib/libvirt/images/fast"
-  
+
   # VM Configuration
   vms:
     web-01:
@@ -266,7 +254,7 @@ infrastructure:
       tags:
         role: "webserver"
         tier: "frontend"
-    
+
     web-02:
       network: "web"
       pool: "default"
@@ -277,7 +265,7 @@ infrastructure:
       tags:
         role: "webserver"
         tier: "frontend"
-    
+
     app-01:
       network: "app"
       pool: "fast"
@@ -288,7 +276,7 @@ infrastructure:
       tags:
         role: "application"
         tier: "backend"
-    
+
     db-01:
       network: "db"
       pool: "fast"
@@ -316,7 +304,7 @@ Create `infrastructure.tf`:
 # Parse infrastructure configuration
 locals {
   infra_config = yamldecode(file("${path.module}/config/infrastructure.yaml"))
-  
+
   # Extract sections
   networks = local.infra_config.infrastructure.networks
   pools    = local.infra_config.infrastructure.storage.pools
@@ -327,13 +315,13 @@ locals {
 # Create networks
 resource "libvirt_network" "networks" {
   for_each = local.networks
-  
+
   name      = "${local.env.name}-${each.key}-network"
   mode      = each.value.mode
   addresses = [each.value.cidr]
   domain    = each.value.domain
   autostart = true
-  
+
   dhcp {
     enabled = true
   }
@@ -342,7 +330,7 @@ resource "libvirt_network" "networks" {
 # Create storage pools
 resource "libvirt_pool" "pools" {
   for_each = local.pools
-  
+
   name = "${local.env.name}-${each.key}-pool"
   type = each.value.type
   path = each.value.path
@@ -351,7 +339,7 @@ resource "libvirt_pool" "pools" {
 # Create VM volumes
 resource "libvirt_volume" "vm_disks" {
   for_each = local.vms
-  
+
   name   = "${local.env.name}-${each.key}.qcow2"
   pool   = libvirt_pool.pools[each.value.pool].name
   format = "qcow2"
@@ -361,20 +349,20 @@ resource "libvirt_volume" "vm_disks" {
 # Create VMs
 resource "libvirt_domain" "vms" {
   for_each = local.vms
-  
+
   name      = "${local.env.name}-${each.key}"
   memory    = each.value.memory_mb
   vcpu      = each.value.vcpu
   autostart = each.value.autostart
-  
+
   disk {
     volume_id = libvirt_volume.vm_disks[each.key].id
   }
-  
+
   network_interface {
     network_id = libvirt_network.networks[each.value.network].id
   }
-  
+
   console {
     type        = "pty"
     target_type = "serial"
@@ -385,7 +373,7 @@ resource "libvirt_domain" "vms" {
 # Create metadata file with tags
 resource "local_file" "vm_metadata" {
   for_each = local.vms
-  
+
   filename = "/tmp/${local.env.name}-${each.key}-metadata.json"
   content = jsonencode({
     vm_name     = each.key
@@ -508,13 +496,13 @@ terraform {
 locals {
   # Parse YAML
   config = yamldecode(file(var.config_file))
-  
+
   # Check required keys
   missing_keys = [
     for key in var.required_keys :
     key if !contains(keys(local.config), key)
   ]
-  
+
   # Validation checks
   has_all_keys = length(local.missing_keys) == 0
 }
@@ -552,7 +540,7 @@ Update `main.tf` to include validation:
 # Validate configuration before use
 module "config_validator" {
   source = "./modules/yaml-validator"
-  
+
   config_file = "${path.module}/config/infrastructure.yaml"
   required_keys = [
     "infrastructure",
@@ -581,7 +569,7 @@ locals {
     for name, net in local.networks :
     net.cidr
   ]
-  
+
   # Check for duplicate CIDRs
   unique_cidrs = toset(local.network_cidrs)
   has_duplicates = length(local.network_cidrs) != length(local.unique_cidrs)
@@ -602,7 +590,7 @@ locals {
     for name, vm in local.vms :
     name => vm.memory_mb >= 512 && vm.memory_mb <= 16384
   }
-  
+
   invalid_memory_vms = [
     for name, valid in local.vm_memory_checks :
     name if !valid
@@ -624,7 +612,7 @@ locals {
     for name, vm in local.vms :
     name => contains(keys(local.networks), vm.network)
   }
-  
+
   invalid_network_vms = [
     for name, valid in local.vm_network_checks :
     name if !valid
@@ -669,13 +657,13 @@ Create `config/environments/dev.yaml`:
 environment:
   name: "dev"
   region: "us-east-1"
-  
+
 infrastructure:
   networks:
     web:
       cidr: "192.168.10.0/24"
       domain: "web.dev.local"
-  
+
   vms:
     web-01:
       network: "web"
@@ -691,13 +679,13 @@ Create `config/environments/staging.yaml`:
 environment:
   name: "staging"
   region: "us-east-1"
-  
+
 infrastructure:
   networks:
     web:
       cidr: "192.168.10.0/24"
       domain: "web.staging.local"
-  
+
   vms:
     web-01:
       network: "web"
@@ -705,7 +693,7 @@ infrastructure:
       vcpu: 2
       disk_gb: 10
       autostart: true
-    
+
     web-02:
       network: "web"
       memory_mb: 1024
@@ -720,13 +708,13 @@ Create `config/environments/prod.yaml`:
 environment:
   name: "prod"
   region: "us-east-1"
-  
+
 infrastructure:
   networks:
     web:
       cidr: "192.168.10.0/24"
       domain: "web.prod.local"
-  
+
   vms:
     web-01:
       network: "web"
@@ -734,14 +722,14 @@ infrastructure:
       vcpu: 4
       disk_gb: 20
       autostart: true
-    
+
     web-02:
       network: "web"
       memory_mb: 2048
       vcpu: 4
       disk_gb: 20
       autostart: true
-    
+
     web-03:
       network: "web"
       memory_mb: 2048
@@ -759,7 +747,7 @@ variable "environment" {
   description = "Environment to deploy (dev, staging, prod)"
   type        = string
   default     = "dev"
-  
+
   validation {
     condition     = contains(["dev", "staging", "prod"], var.environment)
     error_message = "environment must be dev, staging, or prod"
@@ -775,7 +763,7 @@ locals {
   env_config = yamldecode(
     file("${path.module}/config/environments/${var.environment}.yaml")
   )
-  
+
   environment  = local.env_config.environment
   networks     = local.env_config.infrastructure.networks
   vms          = local.env_config.infrastructure.vms
@@ -784,13 +772,13 @@ locals {
 # Create resources from environment config
 resource "libvirt_network" "env_networks" {
   for_each = local.networks
-  
+
   name      = "${local.environment.name}-${each.key}-network"
   mode      = "nat"
   addresses = [each.value.cidr]
   domain    = each.value.domain
   autostart = true
-  
+
   dhcp {
     enabled = true
   }
@@ -798,7 +786,7 @@ resource "libvirt_network" "env_networks" {
 
 resource "libvirt_volume" "env_vm_disks" {
   for_each = local.vms
-  
+
   name   = "${local.environment.name}-${each.key}.qcow2"
   pool   = "default"
   format = "qcow2"
@@ -807,20 +795,20 @@ resource "libvirt_volume" "env_vm_disks" {
 
 resource "libvirt_domain" "env_vms" {
   for_each = local.vms
-  
+
   name      = "${local.environment.name}-${each.key}"
   memory    = each.value.memory_mb
   vcpu      = each.value.vcpu
   autostart = each.value.autostart
-  
+
   disk {
     volume_id = libvirt_volume.env_vm_disks[each.key].id
   }
-  
+
   network_interface {
     network_id = libvirt_network.env_networks[each.value.network].id
   }
-  
+
   console {
     type        = "pty"
     target_type = "serial"

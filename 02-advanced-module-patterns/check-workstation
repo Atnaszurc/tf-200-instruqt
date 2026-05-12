@@ -1,5 +1,5 @@
 #!/bin/bash
-set -euo pipefail
+set -uo pipefail
 
 # Challenge 2 Check: Advanced Module Patterns
 # Validates learner progress through nested modules, conditionals, for_each, and canary patterns
@@ -61,6 +61,35 @@ check_file_contains() {
     return 1
   fi
 }
+
+# ============================================================================
+# Pre-check: Verify learner has activated the configuration
+# ============================================================================
+
+echo ""
+echo "=== Pre-check: Configuration Activation ==="
+
+# Check that main.tf exists (learner should create it from main.tf.example)
+if [[ ! -f "main.tf" ]]; then
+  echo "✗ main.tf not found"
+  echo "  Hint: Copy main.tf.example to main.tf to get started"
+  echo ""
+  echo "Run: cp main.tf.example main.tf"
+  ((ERRORS++))
+  exit 1
+else
+  echo "✓ main.tf exists"
+  
+  # Check if it uses modules
+  if ! grep -q "module" main.tf; then
+    echo "✗ main.tf doesn't use any modules"
+    echo "  Hint: The example file shows how to use the provided modules"
+    ((ERRORS++))
+    exit 1
+  else
+    echo "✓ main.tf uses modules"
+  fi
+fi
 
 # ============================================================================
 # Section 1: Nested Module Hierarchy

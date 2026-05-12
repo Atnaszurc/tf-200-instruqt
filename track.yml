@@ -1,69 +1,45 @@
 slug: partner-tf-200-terraform-modules
+id: mzstvkhuapyr
 title: 'Partner-TF-200: Terraform Modules & Patterns'
-teaser: Master Terraform modules, advanced patterns, and enterprise-grade infrastructure design
-description: |-
-  # TF-200: Terraform Modules & Patterns
-  
-  **Level**: Intermediate (200)
-  **Duration**: ~6 hours
-  **Prerequisites**: TF-100 Terraform Fundamentals
-  
-  ## What You'll Learn
-  
-  Transform from writing basic Terraform to creating professional, reusable infrastructure components:
-  
-  - ✅ Design and compose professional modules
-  - ✅ Implement advanced deployment patterns
-  - ✅ Create YAML-driven infrastructure
-  - ✅ Import and migrate existing resources
-  - ✅ Build enterprise-grade solutions
-  
-  ## Lab Structure
-  
-  This hands-on lab includes 4 comprehensive challenges plus a final skills assessment:
-  
-  1. **Module Design & Composition** (90 min) - Create reusable infrastructure modules
-  2. **Advanced Module Patterns** (90 min) - Implement enterprise deployment strategies
-  3. **YAML-Driven Configuration** (90 min) - Build data-driven infrastructure
-  4. **Import & Migration** (90 min) - Manage existing infrastructure with Terraform
-  5. **Skills Assessment** (120 min) - Apply all concepts in a real-world scenario
-  
-  ## Environment
-  
-  Your lab environment includes:
-  - Terraform (latest stable, 1.15+)
-  - Libvirt/QEMU with nested virtualization
-  - Pre-configured workspace with examples
-  - Both terminal and code editor interfaces
-  
-  ## Prerequisites
-  
-  You must have completed TF-100 or have equivalent knowledge:
-  - Writing Terraform configurations
-  - Variables, loops, and functions
-  - Managing infrastructure resources
-  - State management and CLI operations
-  
-  Ready to master Terraform modules? Let's begin! 🚀
+teaser: Master Terraform modules, advanced patterns, and enterprise-grade infrastructure
+  design
+description: "# TF-200: Terraform Modules & Patterns\n\n**Level**: Intermediate (200)\n**Duration**:
+  ~6 hours\n**Prerequisites**: TF-100 Terraform Fundamentals\n\n## What You'll Learn\n\nTransform
+  from writing basic Terraform to creating professional, reusable infrastructure components:\n\n-
+  ✅ Design and compose professional modules\n- ✅ Implement advanced deployment patterns\n-
+  ✅ Create YAML-driven infrastructure\n- ✅ Import and migrate existing resources\n-
+  ✅ Build enterprise-grade solutions\n\n## Lab Structure\n\nThis hands-on lab includes
+  4 comprehensive challenges plus a final skills assessment:\n\n1. **Module Design
+  & Composition** (90 min) - Create reusable infrastructure modules\n2. **Advanced
+  Module Patterns** (90 min) - Implement enterprise deployment strategies\n3. **YAML-Driven
+  Configuration** (90 min) - Build data-driven infrastructure\n4. **Import & Migration**
+  (90 min) - Manage existing infrastructure with Terraform\n5. **Skills Assessment**
+  (120 min) - Apply all concepts in a real-world scenario\n\n## Environment\n\nYour
+  lab environment includes:\n- Terraform (latest stable, 1.15+)\n- Libvirt/QEMU with
+  nested virtualization\n- Pre-configured workspace with examples\n- Both terminal
+  and code editor interfaces\n\n## Prerequisites\n\nYou must have completed TF-100
+  or have equivalent knowledge:\n- Writing Terraform configurations\n- Variables,
+  loops, and functions\n- Managing infrastructure resources\n- State management and
+  CLI operations\n\nReady to master Terraform modules? Let's begin! \U0001F680"
 icon: https://storage.googleapis.com/instruqt-frontend/img/tracks/terraform.png
 tags:
-  - terraform
-  - infrastructure-as-code
-  - modules
-  - devops
-  - hashicorp
-  - intermediate
+- devops
+- modules
+- terraform
+- hashicorp
+- intermediate
+- infrastructure-as-code
 owner: hashicorp-field-ops
 developers:
-  - fredrik.warfvinge@ibm.com
+- fredrik.warfvinge@ibm.com
+skipping_enabled: true
 idle_timeout: 32400
 timelimit: 32400
-skipping_enabled: true
 lab_config:
-  overlay: false
-  width: 33
-  position: right
+  sidebar_enabled: true
   feedback_recap_enabled: true
+  feedback_tab_enabled: false
   loadingMessages: true
-
-# Made with Bob
+  hideStopButton: false
+checksum: "13344335483622644153"
+enhanced_loading: false

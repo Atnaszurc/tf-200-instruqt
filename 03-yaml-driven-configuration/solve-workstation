@@ -21,7 +21,7 @@ terraform {
   required_providers {
     libvirt = {
       source  = "dmacvicar/libvirt"
-      version = "~> 0.8"
+      version = "~> 0.9"
     }
     local = {
       source  = "hashicorp/local"
@@ -55,12 +55,15 @@ resource "libvirt_network" "networks" {
   
   name      = each.value.name
   mode      = each.value.mode
-  addresses = [each.value.cidr]
   domain    = each.value.domain
   autostart = each.value.autostart
   
-  dhcp {
-    enabled = true
+  ips = {
+    address = cidrhost(each.value.cidr, 1)
+    prefix_length = tonumber(split("/", each.value.cidr)[1])
+    dhcp = {
+      enabled = true
+    }
   }
 }
 
@@ -85,12 +88,15 @@ resource "libvirt_network" "infra_networks" {
   
   name      = "${local.infra_env.name}-${each.key}-network"
   mode      = each.value.mode
-  addresses = [each.value.cidr]
   domain    = each.value.domain
   autostart = true
   
-  dhcp {
-    enabled = true
+  ips = {
+    address = cidrhost(each.value.cidr, 1)
+    prefix_length = tonumber(split("/", each.value.cidr)[1])
+    dhcp = {
+      enabled = true
+    }
   }
 }
 
@@ -100,17 +106,25 @@ resource "libvirt_pool" "infra_pools" {
   
   name = "${local.infra_env.name}-${each.key}-pool"
   type = each.value.type
-  path = each.value.path
+  
+  target = {
+    path = each.value.path
+  }
 }
 
 # Create VM volumes
 resource "libvirt_volume" "infra_vm_disks" {
   for_each = local.infra_vms
   
-  name   = "${local.infra_env.name}-${each.key}.qcow2"
-  pool   = libvirt_pool.infra_pools[each.value.pool].name
-  format = "qcow2"
-  size   = each.value.disk_gb * 1073741824
+  name     = "${local.infra_env.name}-${each.key}.qcow2"
+  pool     = libvirt_pool.infra_pools[each.value.pool].name
+  capacity = each.value.disk_gb * 1073741824
+  
+  target = {
+    format = {
+      type = "qcow2"
+    }
+  }
 }
 
 # Create VMs
@@ -118,22 +132,31 @@ resource "libvirt_domain" "infra_vms" {
   for_each = local.infra_vms
   
   name      = "${local.infra_env.name}-${each.key}"
+  type      = "kvm"
   memory    = each.value.memory_mb
   vcpu      = each.value.vcpu
   autostart = each.value.autostart
   
-  disk {
-    volume_id = libvirt_volume.infra_vm_disks[each.key].id
-  }
-  
-  network_interface {
-    network_id = libvirt_network.infra_networks[each.value.network].id
-  }
-  
-  console {
-    type        = "pty"
-    target_type = "serial"
-    target_port = "0"
+  devices = {
+    disks = [
+      {
+        volume_id = libvirt_volume.infra_vm_disks[each.key].id
+      }
+    ]
+    
+    network_interfaces = [
+      {
+        network_id = libvirt_network.infra_networks[each.value.network].id
+      }
+    ]
+    
+    consoles = [
+      {
+        type        = "pty"
+        target_type = "serial"
+        target_port = 0
+      }
+    ]
   }
 }
 

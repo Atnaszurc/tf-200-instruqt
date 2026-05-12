@@ -1,82 +1,47 @@
 ---
 slug: skills-assessment
-id: 8xk2pqnvmwtr
+id: fpkl4y0zmk8x
 type: challenge
 title: 'Challenge 5: Skills Assessment'
 teaser: Demonstrate your mastery of Terraform modules and patterns by building a complete
   modular infrastructure
 notes:
 - type: text
-  contents: |
-    # Challenge 5: Skills Assessment
-
-    This is your final challenge! You'll demonstrate everything you've learned in TF-200 by building a complete, production-ready modular infrastructure.
-
-    ## What You'll Build
-
-    A multi-tier application infrastructure using:
-    - **Custom modules** with proper composition
-    - **YAML-driven configuration** for flexibility
-    - **Advanced patterns** (nested modules, conditional resources)
-    - **Import strategies** for existing resources
-    - **Best practices** throughout
-
-    ## No Step-by-Step Instructions
-
-    This challenge provides **requirements only** - no detailed instructions. You'll need to apply everything you've learned to design and implement the solution.
-
-    ## Success Criteria
-
-    Your solution will be validated against:
-    - ✅ Module structure and composition
-    - ✅ YAML configuration usage
-    - ✅ Advanced patterns implementation
-    - ✅ Import of existing resources
-    - ✅ Code quality and best practices
-
-    Ready to prove your skills? Let's go! 🚀
+  contents: "# Challenge 5: Skills Assessment\n\nThis is your final challenge! You'll
+    demonstrate everything you've learned in TF-200 by building a complete, production-ready
+    modular infrastructure.\n\n## What You'll Build\n\nA multi-tier application infrastructure
+    using:\n- **Custom modules** with proper composition\n- **YAML-driven configuration**
+    for flexibility\n- **Advanced patterns** (nested modules, conditional resources)\n-
+    **Import strategies** for existing resources\n- **Best practices** throughout\n\n##
+    No Step-by-Step Instructions\n\nThis challenge provides **requirements only**
+    - no detailed instructions. You'll need to apply everything you've learned to
+    design and implement the solution.\n\n## Success Criteria\n\nYour solution will
+    be validated against:\n- ✅ Module structure and composition\n- ✅ YAML configuration
+    usage\n- ✅ Advanced patterns implementation\n- ✅ Import of existing resources\n-
+    ✅ Code quality and best practices\n\nReady to prove your skills? Let's go! \U0001F680\n"
 - type: text
-  contents: |
-    # Assessment Overview
-
-    ## The Scenario
-
-    You're tasked with creating a modular infrastructure for a three-tier web application:
-
-    **Tier 1: Frontend**
-    - Web servers
-    - Load balancing
-    - Public network
-
-    **Tier 2: Application**
-    - Application servers
-    - Private network
-    - Service discovery
-
-    **Tier 3: Database**
-    - Database servers
-    - Isolated network
-    - Backup storage
-
-    ## Your Mission
-
-    1. Create reusable modules for each tier
-    2. Use YAML files to configure environments (dev, staging, prod)
-    3. Import existing legacy infrastructure
-    4. Implement advanced patterns (canary deployments, conditional resources)
-    5. Ensure everything follows best practices
-
-    Good luck! 🎯
+  contents: "# Assessment Overview\n\n## The Scenario\n\nYou're tasked with creating
+    a modular infrastructure for a three-tier web application:\n\n**Tier 1: Frontend**\n-
+    Web servers\n- Load balancing\n- Public network\n\n**Tier 2: Application**\n-
+    Application servers\n- Private network\n- Service discovery\n\n**Tier 3: Database**\n-
+    Database servers\n- Isolated network\n- Backup storage\n\n## Your Mission\n\n1.
+    Create reusable modules for each tier\n2. Use YAML files to configure environments
+    (dev, staging, prod)\n3. Import existing legacy infrastructure\n4. Implement advanced
+    patterns (canary deployments, conditional resources)\n5. Ensure everything follows
+    best practices\n\nGood luck! \U0001F3AF\n"
 tabs:
-- title: Editor
+- id: 5ebf42jq8ao7
+  title: Editor
   type: code
   hostname: workstation
   path: /root/terraform
-- title: Terminal
+- id: s1qg9estdcka
+  title: Terminal
   type: terminal
   hostname: workstation
 difficulty: basic
 timelimit: 7200
+enhanced_loading: null
 ---
 
 🎯 Challenge 5: Skills Assessment
