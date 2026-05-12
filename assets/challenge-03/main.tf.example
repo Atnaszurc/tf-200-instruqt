@@ -1,0 +1,46 @@
+terraform {
+  required_version = ">= 1.14"
+  required_providers {
+    libvirt = {
+      source  = "dmacvicar/libvirt"
+      version = "~> 0.9"
+    }
+  }
+}
+
+provider "libvirt" {
+  uri = "qemu:///system"
+}
+
+# Parse YAML configuration
+locals {
+  network_config = yamldecode(file("${path.module}/config/networks.yaml"))
+  
+  # Transform to map for for_each
+  networks = {
+    for net in local.network_config.networks :
+    net.name => net
+  }
+}
+
+# Create networks from YAML
+resource "libvirt_network" "networks" {
+  for_each = local.networks
+  
+  name      = each.value.name
+  mode      = each.value.mode
+  addresses = [each.value.cidr]
+  autostart = true
+}
+
+# Output network information
+output "networks" {
+  description = "Created networks"
+  value = {
+    for name, net in libvirt_network.networks :
+    name => {
+      id   = net.id
+      cidr = net.addresses[0]
+    }
+  }
+}

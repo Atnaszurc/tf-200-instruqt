@@ -59,17 +59,6 @@ module "web_server" {
   vcpu       = 1
   network_id = module.app_network.id  # Composition: using network output!
   autostart  = false
-  
-  cloud_init_user_data = <<-EOT
-    #cloud-config
-    hostname: web-server
-    fqdn: web-server.app.local
-    packages:
-      - nginx
-    runcmd:
-      - systemctl enable nginx
-      - systemctl start nginx
-  EOT
 }
 
 # Create API server VM
@@ -81,12 +70,6 @@ module "api_server" {
   vcpu       = 1
   network_id = module.app_network.id  # Composition: using network output!
   autostart  = false
-  
-  cloud_init_user_data = <<-EOT
-    #cloud-config
-    hostname: api-server
-    fqdn: api-server.app.local
-  EOT
 }
 
 # Create database VM
@@ -98,12 +81,6 @@ module "database" {
   vcpu       = 2
   network_id = module.app_network.id  # Composition: using network output!
   autostart  = false
-  
-  cloud_init_user_data = <<-EOT
-    #cloud-config
-    hostname: database
-    fqdn: database.app.local
-  EOT
 }
 
 # ============================================================================

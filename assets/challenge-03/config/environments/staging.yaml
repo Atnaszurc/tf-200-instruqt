@@ -1,0 +1,27 @@
+environment:
+  name: "staging"
+  region: "us-east-1"
+  owner: "qa-team"
+  
+infrastructure:
+  networks:
+    web:
+      cidr: "192.168.10.0/24"
+      domain: "web.staging.local"
+  
+  vms:
+    web-01:
+      network: "web"
+      memory_mb: 1024
+      vcpu: 2
+      disk_gb: 10
+      autostart: true
+    
+    web-02:
+      network: "web"
+      memory_mb: 1024
+      vcpu: 2
+      disk_gb: 10
+      autostart: true
+
+# Made with Bob

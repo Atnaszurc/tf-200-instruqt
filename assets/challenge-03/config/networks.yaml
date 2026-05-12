@@ -1,0 +1,26 @@
+# Network Configuration
+# This file defines all networks for the infrastructure
+
+networks:
+  - name: "web-network"
+    mode: "nat"
+    cidr: "10.10.0.0/24"
+    domain: "web.local"
+    autostart: true
+    description: "Network for web servers"
+  
+  - name: "app-network"
+    mode: "nat"
+    cidr: "10.20.0.0/24"
+    domain: "app.local"
+    autostart: true
+    description: "Network for application servers"
+  
+  - name: "db-network"
+    mode: "nat"
+    cidr: "10.30.0.0/24"
+    domain: "db.local"
+    autostart: true
+    description: "Network for database servers"
+
+# Made with Bob

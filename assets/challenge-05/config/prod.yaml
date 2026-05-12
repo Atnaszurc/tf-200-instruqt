@@ -1,0 +1,19 @@
+environment: prod
+
+frontend:
+  server_count: 3
+  network_cidr: "10.30.0.0/24"
+  monitoring_enabled: true
+
+application:
+  server_count: 4
+  network_cidr: "10.31.0.0/24"
+  caching_enabled: true
+
+database:
+  server_count: 2
+  network_cidr: "10.32.0.0/24"
+  backup_enabled: true
+  replication_enabled: true
+
+# Made with Bob

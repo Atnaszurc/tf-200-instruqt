@@ -407,6 +407,12 @@ resource "libvirt_domain" "vms" {
   vcpu      = each.value.vcpu
   autostart = each.value.autostart
   
+  os {
+    type     = "hvm"
+    arch     = "x86_64"
+    machine  = "pc"
+  }
+  
   disk {
     volume_id = libvirt_volume.vm_disks[each.key].id
   }

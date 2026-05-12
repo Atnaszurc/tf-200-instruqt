@@ -432,11 +432,6 @@ variable "autostart" {
   default     = false
 }
 
-variable "cloud_init_user_data" {
-  description = "Cloud-init user data"
-  type        = string
-  default     = ""
-}
 EOF
 
 cat > modules/libvirt-vm/main.tf << 'EOF'
@@ -460,14 +455,6 @@ resource "libvirt_volume" "vm_disk" {
   size   = 1073741824  # 1GB
 }
 
-# Cloud-init disk (if user data provided)
-resource "libvirt_cloudinit_disk" "cloudinit" {
-  count     = var.cloud_init_user_data != "" ? 1 : 0
-  name      = "${var.name}-cloudinit.iso"
-  user_data = var.cloud_init_user_data
-  pool      = "default"
-}
-
 # Create the VM
 resource "libvirt_domain" "vm" {
   name      = var.name
@@ -475,15 +462,14 @@ resource "libvirt_domain" "vm" {
   vcpu      = var.vcpu
   autostart = var.autostart
   
-  disk {
-    volume_id = libvirt_volume.vm_disk.id
+  os {
+    type     = "hvm"
+    arch     = "x86_64"
+    machine  = "pc"
   }
   
-  dynamic "disk" {
-    for_each = var.cloud_init_user_data != "" ? [1] : []
-    content {
-      volume_id = libvirt_cloudinit_disk.cloudinit[0].id
-    }
+  disk {
+    volume_id = libvirt_volume.vm_disk.id
   }
   
   network_interface {
@@ -544,7 +530,6 @@ module "vm" {
 | vcpu | Number of vCPUs | number | 1 | no |
 | network_id | Network ID | string | n/a | yes |
 | autostart | Auto-start VM | bool | false | no |
-| cloud_init_user_data | Cloud-init data | string | "" | no |
 
 ## Outputs
 
@@ -600,12 +585,6 @@ module "web_server" {
   vcpu       = 1
   network_id = module.app_network.id
   autostart  = false
-  
-  cloud_init_user_data = <<-EOT
-    #cloud-config
-    hostname: web-server
-    fqdn: web-server.app.local
-  EOT
 }
 
 # Create API server VM
@@ -617,12 +596,6 @@ module "api_server" {
   vcpu       = 1
   network_id = module.app_network.id
   autostart  = false
-  
-  cloud_init_user_data = <<-EOT
-    #cloud-config
-    hostname: api-server
-    fqdn: api-server.app.local
-  EOT
 }
 
 # Create database VM
@@ -634,12 +607,6 @@ module "database" {
   vcpu       = 2
   network_id = module.app_network.id
   autostart  = false
-  
-  cloud_init_user_data = <<-EOT
-    #cloud-config
-    hostname: database
-    fqdn: database.app.local
-  EOT
 }
 EOF
 

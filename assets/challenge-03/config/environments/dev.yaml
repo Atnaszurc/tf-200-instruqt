@@ -1,0 +1,20 @@
+environment:
+  name: "dev"
+  region: "us-east-1"
+  owner: "dev-team"
+  
+infrastructure:
+  networks:
+    web:
+      cidr: "192.168.10.0/24"
+      domain: "web.dev.local"
+  
+  vms:
+    web-01:
+      network: "web"
+      memory_mb: 512
+      vcpu: 1
+      disk_gb: 5
+      autostart: false
+
+# Made with Bob

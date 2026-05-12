@@ -1,0 +1,139 @@
+terraform {
+  required_version = ">= 1.14"
+  required_providers {
+    libvirt = {
+      source  = "dmacvicar/libvirt"
+      version = "~> 0.9"
+    }
+  }
+}
+
+provider "libvirt" {
+  uri = "qemu:///system"
+}
+
+# Parse complex YAML configuration
+locals {
+  infra_config = yamldecode(file("${path.module}/config/infrastructure.yaml"))
+  
+  # Extract sections
+  networks = local.infra_config.infrastructure.networks
+  storage  = local.infra_config.infrastructure.storage
+  vms      = local.infra_config.infrastructure.vms
+}
+
+# Validate configuration with module
+module "validate_config" {
+  source = "./modules/yaml-validator"
+  
+  config_file   = "${path.module}/config/infrastructure.yaml"
+  required_keys = ["infrastructure"]
+}
+
+# Create networks
+resource "libvirt_network" "networks" {
+  for_each = local.networks
+  
+  name      = each.key
+  mode      = "nat"
+  addresses = [each.value.cidr]
+  autostart = true
+  
+  dns {
+    enabled = true
+  }
+}
+
+# Create storage pools
+resource "libvirt_pool" "pools" {
+  for_each = local.storage.pools
+  
+  name = each.key
+  type = each.value.type
+  path = "/var/lib/libvirt/images/${each.key}"
+}
+
+# Create base volumes
+resource "libvirt_volume" "base" {
+  for_each = local.storage.volumes
+  
+  name   = each.value.name
+  pool   = libvirt_pool.pools[each.value.pool].name
+  format = "qcow2"
+  
+  create {
+    content {
+      url = each.value.source_url
+    }
+  }
+}
+
+# Create VM volumes
+resource "libvirt_volume" "vm_volumes" {
+  for_each = local.vms
+  
+  name           = "${each.key}-disk.qcow2"
+  pool           = libvirt_pool.pools["default"].name
+  base_volume_id = libvirt_volume.base["ubuntu-base"].id
+  format         = "qcow2"
+  size           = each.value.disk_gb * 1024 * 1024 * 1024
+}
+
+# Create VMs
+resource "libvirt_domain" "vms" {
+  for_each = local.vms
+  
+  name   = each.key
+  memory = each.value.memory_mb
+  vcpu   = each.value.vcpu
+  
+  os {
+    type    = "hvm"
+    arch    = "x86_64"
+    machine = "q35"
+  }
+  
+  devices {
+    disks = [
+      {
+        volume_id = libvirt_volume.vm_volumes[each.key].id
+      }
+    ]
+    
+    interfaces = [
+      {
+        network_id     = libvirt_network.networks[each.value.network].id
+        wait_for_lease = true
+      }
+    ]
+    
+    consoles = [
+      {
+        type        = "pty"
+        target_port = "0"
+      }
+    ]
+  }
+}
+
+# Output infrastructure details
+output "infrastructure" {
+  description = "Infrastructure details"
+  value = {
+    networks = {
+      for name, net in libvirt_network.networks :
+      name => {
+        id   = net.id
+        cidr = net.addresses[0]
+      }
+    }
+    vms = {
+      for name, vm in libvirt_domain.vms :
+      name => {
+        id     = vm.id
+        memory = vm.memory
+        vcpu   = vm.vcpu
+      }
+    }
+  }
+}

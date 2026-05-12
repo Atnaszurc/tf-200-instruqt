@@ -1,0 +1,86 @@
+# Complete Infrastructure Configuration
+# Defines networks, storage, and VMs
+
+infrastructure:
+  # Network Configuration
+  networks:
+    web:
+      cidr: "192.168.10.0/24"
+      domain: "web.local"
+      mode: "nat"
+    
+    app:
+      cidr: "192.168.20.0/24"
+      domain: "app.local"
+      mode: "nat"
+    
+    db:
+      cidr: "192.168.30.0/24"
+      domain: "db.local"
+      mode: "nat"
+  
+  # Storage Configuration
+  storage:
+    pools:
+      default:
+        type: "dir"
+        path: "/var/lib/libvirt/images/default"
+      
+      fast:
+        type: "dir"
+        path: "/var/lib/libvirt/images/fast"
+  
+  # VM Configuration
+  vms:
+    web-01:
+      network: "web"
+      pool: "default"
+      memory_mb: 1024
+      vcpu: 2
+      disk_gb: 10
+      autostart: true
+      tags:
+        role: "webserver"
+        tier: "frontend"
+    
+    web-02:
+      network: "web"
+      pool: "default"
+      memory_mb: 1024
+      vcpu: 2
+      disk_gb: 10
+      autostart: true
+      tags:
+        role: "webserver"
+        tier: "frontend"
+    
+    app-01:
+      network: "app"
+      pool: "fast"
+      memory_mb: 2048
+      vcpu: 4
+      disk_gb: 20
+      autostart: true
+      tags:
+        role: "application"
+        tier: "backend"
+    
+    db-01:
+      network: "db"
+      pool: "fast"
+      memory_mb: 4096
+      vcpu: 4
+      disk_gb: 50
+      autostart: true
+      tags:
+        role: "database"
+        tier: "data"
+
+# Environment-specific settings
+environment:
+  name: "development"
+  region: "us-east-1"
+  owner: "platform-team"
+  cost_center: "engineering"
+
+# Made with Bob

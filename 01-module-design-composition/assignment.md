@@ -803,11 +803,6 @@ variable "autostart" {
   default     = false
 }
 
-variable "cloud_init_user_data" {
-  description = "Cloud-init user data"
-  type        = string
-  default     = ""
-}
 EOF
 ```
 
@@ -835,14 +830,6 @@ resource "libvirt_volume" "vm_disk" {
   size   = 1073741824  # 1GB
 }
 
-# Cloud-init disk (if user data provided)
-resource "libvirt_cloudinit_disk" "cloudinit" {
-  count     = var.cloud_init_user_data != "" ? 1 : 0
-  name      = "${var.name}-cloudinit.iso"
-  user_data = var.cloud_init_user_data
-  pool      = "default"
-}
-
 # Create the VM
 resource "libvirt_domain" "vm" {
   name      = var.name
@@ -852,13 +839,6 @@ resource "libvirt_domain" "vm" {
   
   disk {
     volume_id = libvirt_volume.vm_disk.id
-  }
-  
-  dynamic "disk" {
-    for_each = var.cloud_init_user_data != "" ? [1] : []
-    content {
-      volume_id = libvirt_cloudinit_disk.cloudinit[0].id
-    }
   }
   
   network_interface {
@@ -946,12 +926,6 @@ module "web_server" {
   vcpu       = 1
   network_id = module.app_network.id  # Composition!
   autostart  = false
-  
-  cloud_init_user_data = <<-EOT
-    #cloud-config
-    hostname: web-server
-    fqdn: web-server.app.local
-  EOT
 }
 
 # Create API server VM
@@ -963,12 +937,6 @@ module "api_server" {
   vcpu       = 1
   network_id = module.app_network.id  # Composition!
   autostart  = false
-  
-  cloud_init_user_data = <<-EOT
-    #cloud-config
-    hostname: api-server
-    fqdn: api-server.app.local
-  EOT
 }
 
 # Create database VM
@@ -980,12 +948,6 @@ module "database" {
   vcpu       = 2
   network_id = module.app_network.id  # Composition!
   autostart  = false
-  
-  cloud_init_user_data = <<-EOT
-    #cloud-config
-    hostname: database
-    fqdn: database.app.local
-  EOT
 }
 EOF
 ```
@@ -1158,12 +1120,6 @@ module "web" {
   vcpu       = 1
   network_id = module.app_network.id
   autostart  = false
-  
-  cloud_init_user_data = <<-EOT
-    #cloud-config
-    hostname: web-server
-    fqdn: web-server.app.local
-  EOT
 }
 
 # Renamed from api_server to api
@@ -1180,12 +1136,6 @@ module "api" {
   vcpu       = 1
   network_id = module.app_network.id
   autostart  = false
-  
-  cloud_init_user_data = <<-EOT
-    #cloud-config
-    hostname: api-server
-    fqdn: api-server.app.local
-  EOT
 }
 
 # Renamed from database to db
@@ -1202,12 +1152,6 @@ module "db" {
   vcpu       = 2
   network_id = module.app_network.id
   autostart  = false
-  
-  cloud_init_user_data = <<-EOT
-    #cloud-config
-    hostname: database
-    fqdn: database.app.local
-  EOT
 }
 EOF
 ```

@@ -212,6 +212,12 @@ resource "libvirt_domain" "vms" {
   vcpu      = each.value.vcpu_count
   autostart = var.autostart
   
+  os {
+    type     = "hvm"
+    arch     = "x86_64"
+    machine  = "pc"
+  }
+  
   disk {
     volume_id = each.value.volume_id
   }
@@ -469,6 +475,12 @@ resource "libvirt_domain" "vms" {
   vcpu      = each.value.vcpu_count
   autostart = local.autostart
   
+  os {
+    type     = "hvm"
+    arch     = "x86_64"
+    machine  = "pc"
+  }
+  
   disk {
     volume_id = libvirt_volume.vm_disks[each.key].id
   }
@@ -668,6 +680,12 @@ resource "libvirt_domain" "stable" {
   vcpu      = var.vcpu_count
   autostart = false
   
+  os {
+    type     = "hvm"
+    arch     = "x86_64"
+    machine  = "pc"
+  }
+  
   disk {
     volume_id = libvirt_volume.stable[count.index].id
   }
@@ -691,6 +709,12 @@ resource "libvirt_domain" "canary" {
   memory    = var.memory_mb
   vcpu      = var.vcpu_count
   autostart = false
+  
+  os {
+    type     = "hvm"
+    arch     = "x86_64"
+    machine  = "pc"
+  }
   
   disk {
     volume_id = libvirt_volume.canary[count.index].id

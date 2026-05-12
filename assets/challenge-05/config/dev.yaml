@@ -1,0 +1,19 @@
+environment: dev
+
+frontend:
+  server_count: 2
+  network_cidr: "10.10.0.0/24"
+  monitoring_enabled: false
+
+application:
+  server_count: 2
+  network_cidr: "10.11.0.0/24"
+  caching_enabled: false
+
+database:
+  server_count: 1
+  network_cidr: "10.12.0.0/24"
+  backup_enabled: false
+  replication_enabled: false
+
+# Made with Bob
