@@ -6,8 +6,21 @@ set -euo pipefail
 
 echo "Setting up Challenge 5: Skills Assessment..."
 
+# Clone the lab assets repository first
+echo "Cloning lab assets from GitHub..."
+cd /root
+rm -rf lab-assets
+git clone https://github.com/Atnaszurc/tf-200-instruqt.git lab-assets
+
 # Create base directory structure
 mkdir -p /root/terraform/{modules,config,legacy}
+
+# Copy YAML configuration files from GitHub
+echo "Copying YAML configuration files from GitHub..."
+cp -r /root/lab-assets/assets/challenge-05/config/* /root/terraform/config/
+
+# Copy README from GitHub
+cp /root/lab-assets/assets/challenge-05/README.md /root/terraform/
 
 # ============================================================================
 # Create Legacy Infrastructure (to be imported)
@@ -72,64 +85,6 @@ virsh define /tmp/legacy-app-server.xml
 # Don't start the VM to save resources, just define it
 
 echo "✅ Created legacy-app-server (defined, not started)"
-
-# ============================================================================
-# Create Sample YAML Configuration Files
-# ============================================================================
-echo "Creating sample YAML configuration files..."
-
-cat > /root/terraform/config/dev.yaml << 'EOF'
-environment: dev
-frontend:
-  server_count: 2
-  network_cidr: "10.10.0.0/24"
-  monitoring_enabled: false
-application:
-  server_count: 2
-  network_cidr: "10.11.0.0/24"
-  caching_enabled: false
-database:
-  server_count: 1
-  network_cidr: "10.12.0.0/24"
-  backup_enabled: false
-  replication_enabled: false
-EOF
-
-cat > /root/terraform/config/staging.yaml << 'EOF'
-environment: staging
-frontend:
-  server_count: 2
-  network_cidr: "10.20.0.0/24"
-  monitoring_enabled: true
-application:
-  server_count: 3
-  network_cidr: "10.21.0.0/24"
-  caching_enabled: true
-database:
-  server_count: 1
-  network_cidr: "10.22.0.0/24"
-  backup_enabled: true
-  replication_enabled: false
-EOF
-
-cat > /root/terraform/config/prod.yaml << 'EOF'
-environment: prod
-frontend:
-  server_count: 3
-  network_cidr: "10.30.0.0/24"
-  monitoring_enabled: true
-application:
-  server_count: 4
-  network_cidr: "10.31.0.0/24"
-  caching_enabled: true
-database:
-  server_count: 2
-  network_cidr: "10.32.0.0/24"
-  backup_enabled: true
-  replication_enabled: true
-EOF
-
-echo "✅ Created YAML configuration files"
 
 # ============================================================================
 # Create Helper Scripts
@@ -256,99 +211,6 @@ EOF
 chmod +x /root/terraform/discover-legacy.sh
 
 # ============================================================================
-# Create README with Instructions
-# ============================================================================
-cat > /root/terraform/README.md << 'EOF'
-# Challenge 5: Skills Assessment
-
-## Overview
-
-This is your final challenge! Build a complete, production-ready modular infrastructure for CloudApp.
-
-## What's Provided
-
-### Legacy Infrastructure (to import)
-- `legacy-app-network` (10.100.0.0/24)
-- `legacy-app-server` (VM on legacy network)
-
-### Configuration Files
-- `config/dev.yaml` - Development environment config
-- `config/staging.yaml` - Staging environment config
-- `config/prod.yaml` - Production environment config
-
-### Helper Scripts
-- `validate-structure.sh` - Validate your module structure
-- `test-environment.sh` - Test a specific environment
-- `discover-legacy.sh` - Discover legacy infrastructure
-
-## Your Task
-
-Create a modular infrastructure with:
-
-1. **Modules** (in `modules/` directory):
-   - `frontend/` - Web tier module
-   - `application/` - App tier module
-   - `database/` - Data tier module
-   - `app-stack/` - Composition module
-
-2. **YAML-Driven Configuration**:
-   - Parse YAML files with `yamldecode()`
-   - Support dev, staging, prod environments
-   - Environment-specific settings
-
-3. **Import Legacy Resources**:
-   - Import `legacy-app-network`
-   - Import `legacy-app-server`
-   - Use import blocks (not CLI)
-
-4. **Advanced Patterns**:
-   - Canary deployment for app tier
-   - Conditional resources
-   - Module composition
-
-## Getting Started
-
-1. Discover legacy infrastructure:
-   ```bash
-   ./discover-legacy.sh
-   ```
-
-2. Create module structure:
-   ```bash
-   mkdir -p modules/{frontend,application,database,app-stack}
-   ```
-
-3. Validate structure:
-   ```bash
-   ./validate-structure.sh
-   ```
-
-4. Test an environment:
-   ```bash
-   ./test-environment.sh dev
-   ```
-
-## Tips
-
-- Start with one module, test it, then add the next
-- Use YAML files for all environment-specific config
-- Import legacy resources after modules are working
-- Test each environment separately
-- Follow best practices from previous challenges
-
-## Validation
-
-When you click "Check", your solution will be validated against:
-- Module structure and composition
-- YAML configuration usage
-- Import of legacy resources
-- Advanced patterns implementation
-- Code quality and best practices
-
-Good luck! 🚀
-EOF
-
-# ============================================================================
 # Create Main Terraform Configuration Starter
 # ============================================================================
 cat > /root/terraform/main.tf << 'EOF'
@@ -357,7 +219,7 @@ terraform {
   required_providers {
     libvirt = {
       source  = "dmacvicar/libvirt"
-      version = "~> 0.7"
+      version = "~> 0.9"
     }
     local = {
       source  = "hashicorp/local"
@@ -456,7 +318,7 @@ echo "✅ Challenge 5 setup complete!"
 echo ""
 echo "Environment includes:"
 echo "  - Legacy infrastructure (network + VM) for import practice"
-echo "  - YAML configuration files for 3 environments"
+echo "  - YAML configuration files for 3 environments (from GitHub)"
 echo "  - Helper scripts for validation and testing"
 echo "  - Module template structure"
 echo "  - Starter Terraform configuration"
