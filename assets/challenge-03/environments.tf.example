@@ -47,11 +47,26 @@ module "validate_env" {
 # Create environment network
 resource "libvirt_network" "env_network" {
   name      = "${var.environment}-network"
-  mode      = "nat"
-  addresses = [local.network_cidr]
   autostart = true
   
-  dns {
+  ips = [
+    {
+      address = split("/", local.network_cidr)[0]
+      prefix  = tonumber(split("/", local.network_cidr)[1])
+      dhcp = {
+        ranges = [{
+          start = cidrhost(local.network_cidr, 2)
+          end   = cidrhost(local.network_cidr, -2)
+        }]
+      }
+    }
+  ]
+  
+  forward = {
+    mode = "nat"
+  }
+  
+  dns = {
     enabled = true
   }
 }
@@ -60,19 +75,9 @@ resource "libvirt_network" "env_network" {
 resource "libvirt_pool" "env_pool" {
   name = "${var.environment}-pool"
   type = "dir"
-  path = "/var/lib/libvirt/images/${var.environment}"
-}
-
-# Create base volume
-resource "libvirt_volume" "base" {
-  name   = "${var.environment}-base.qcow2"
-  pool   = libvirt_pool.env_pool.name
-  format = "qcow2"
   
-  create {
-    content {
-      url = "https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-amd64.img"
-    }
+  target = {
+    path = "/var/lib/libvirt/images/${var.environment}"
   }
 }
 
@@ -80,11 +85,15 @@ resource "libvirt_volume" "base" {
 resource "libvirt_volume" "vm_volumes" {
   count = local.vm_count
   
-  name           = "${var.environment}-vm-${count.index + 1}-disk.qcow2"
-  pool           = libvirt_pool.env_pool.name
-  base_volume_id = libvirt_volume.base.id
-  format         = "qcow2"
-  size           = local.vm_disk_gb * 1024 * 1024 * 1024
+  name     = "${var.environment}-vm-${count.index + 1}-disk.qcow2"
+  pool     = libvirt_pool.env_pool.name
+  capacity = local.vm_disk_gb * 1024 * 1024 * 1024
+  
+  target = {
+    format = {
+      type = "qcow2"
+    }
+  }
 }
 
 # Create VMs
@@ -92,23 +101,18 @@ resource "libvirt_domain" "vms" {
   count = local.vm_count
   
   name   = "${var.environment}-vm-${count.index + 1}"
+  type   = "kvm"
   memory = local.vm_memory
   vcpu   = local.vm_vcpu
   
-  os {
-    type    = "hvm"
-    arch    = "x86_64"
-    machine = "q35"
-  }
-  
-  devices {
+  devices = {
     disks = [
       {
         volume_id = libvirt_volume.vm_volumes[count.index].id
       }
     ]
     
-    interfaces = [
+    network_interfaces = [
       {
         network_id     = libvirt_network.env_network.id
         wait_for_lease = true
@@ -118,7 +122,7 @@ resource "libvirt_domain" "vms" {
     consoles = [
       {
         type        = "pty"
-        target_port = "0"
+        target_port = 0
       }
     ]
   }

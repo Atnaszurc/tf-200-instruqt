@@ -28,9 +28,24 @@ resource "libvirt_network" "networks" {
   for_each = local.networks
   
   name      = each.value.name
-  mode      = each.value.mode
-  addresses = [each.value.cidr]
   autostart = true
+  
+  ips = [
+    {
+      address = split("/", each.value.cidr)[0]
+      prefix  = tonumber(split("/", each.value.cidr)[1])
+      dhcp = {
+        ranges = [{
+          start = cidrhost(each.value.cidr, 2)
+          end   = cidrhost(each.value.cidr, -2)
+        }]
+      }
+    }
+  ]
+  
+  forward = {
+    mode = each.value.mode
+  }
 }
 
 # Output network information
@@ -40,7 +55,7 @@ output "networks" {
     for name, net in libvirt_network.networks :
     name => {
       id   = net.id
-      cidr = net.addresses[0]
+      cidr = "${net.ips[0].address}/${net.ips[0].prefix}"
     }
   }
 }
