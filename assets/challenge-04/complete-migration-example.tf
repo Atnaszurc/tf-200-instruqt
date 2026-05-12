@@ -34,46 +34,61 @@ import {
 # Step 2: Define resources with better names
 resource "libvirt_network" "production" {
   name      = "legacy-net-1"
-  mode      = "nat"
-  addresses = ["10.50.0.0/24"]
   autostart = true
 
-  dns {
-    enabled = true
-  }
+  ips = [{
+    address = "10.50.0.1"
+    prefix  = 24
+    dhcp = {
+      ranges = [{
+        start = "10.50.0.2"
+        end   = "10.50.0.254"
+      }]
+    }
+  }]
 
-  dhcp {
-    enabled = true
+  forward = {
+    mode = "nat"
   }
 }
 
 resource "libvirt_network" "staging" {
   name      = "legacy-net-2"
-  mode      = "nat"
-  addresses = ["10.51.0.0/24"]
   autostart = true
 
-  dns {
-    enabled = true
-  }
+  ips = [{
+    address = "10.51.0.1"
+    prefix  = 24
+    dhcp = {
+      ranges = [{
+        start = "10.51.0.2"
+        end   = "10.51.0.254"
+      }]
+    }
+  }]
 
-  dhcp {
-    enabled = true
+  forward = {
+    mode = "nat"
   }
 }
 
 resource "libvirt_network" "handoff" {
   name      = "legacy-net-3"
-  mode      = "nat"
-  addresses = ["10.52.0.0/24"]
   autostart = true
 
-  dns {
-    enabled = true
-  }
+  ips = [{
+    address = "10.52.0.1"
+    prefix  = 24
+    dhcp = {
+      ranges = [{
+        start = "10.52.0.2"
+        end   = "10.52.0.254"
+      }]
+    }
+  }]
 
-  dhcp {
-    enabled = true
+  forward = {
+    mode = "nat"
   }
 }
 
@@ -95,11 +110,11 @@ output "migration_status" {
     imported = {
       production = {
         id   = libvirt_network.production.id
-        cidr = libvirt_network.production.addresses[0]
+        cidr = "${libvirt_network.production.ips[0].address}/${libvirt_network.production.ips[0].prefix}"
       }
       staging = {
         id   = libvirt_network.staging.id
-        cidr = libvirt_network.staging.addresses[0]
+        cidr = "${libvirt_network.staging.ips[0].address}/${libvirt_network.staging.ips[0].prefix}"
       }
     }
     # handoff will be removed after applying removed block

@@ -32,19 +32,23 @@ import {
 
 # Resource definitions for all tiers
 resource "libvirt_network" "tiers" {
-  for_each = local.networks
-
+  for_each  = local.networks
   name      = each.value.name
-  mode      = "nat"
-  addresses = [each.value.cidr]
   autostart = true
 
-  dns {
-    enabled = true
-  }
+  ips = [{
+    address = split("/", each.value.cidr)[0]
+    prefix  = tonumber(split("/", each.value.cidr)[1])
+    dhcp = {
+      ranges = [{
+        start = cidrhost(each.value.cidr, 2)
+        end   = cidrhost(each.value.cidr, -2)
+      }]
+    }
+  }]
 
-  dhcp {
-    enabled = true
+  forward = {
+    mode = "nat"
   }
 }
 
@@ -56,7 +60,7 @@ output "tier_networks" {
     key => {
       id   = net.id
       name = net.name
-      cidr = net.addresses[0]
+      cidr = "${net.ips[0].address}/${net.ips[0].prefix}"
     }
   }
 }

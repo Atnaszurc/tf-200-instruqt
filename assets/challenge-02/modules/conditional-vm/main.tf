@@ -27,10 +27,8 @@ locals {
 }
 
 # Conditional network creation
-resource "libvirt_network" "this" {
-  count = var.create_network ? 1 : 0
-
-  name      = "${var.app_name}-${var.environment}-network"
+resource "libvirt_network" "network" {
+}-${var.environment}-network"
   mode      = "nat"
   addresses = ["192.168.210.0/24"]
   autostart = true

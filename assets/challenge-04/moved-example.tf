@@ -33,46 +33,61 @@ moved {
 # Resources with improved names
 resource "libvirt_network" "production" {
   name      = "legacy-network" # Actual network name unchanged
-  mode      = "nat"
-  addresses = ["10.100.0.0/24"]
   autostart = true
 
-  dns {
-    enabled = true
-  }
+  ips = [{
+    address = "10.100.0.1"
+    prefix  = 24
+    dhcp = {
+      ranges = [{
+        start = "10.100.0.2"
+        end   = "10.100.0.254"
+      }]
+    }
+  }]
 
-  dhcp {
-    enabled = true
+  forward = {
+    mode = "nat"
   }
 }
 
 resource "libvirt_network" "application" {
   name      = "app-network"
-  mode      = "nat"
-  addresses = ["10.101.0.0/24"]
   autostart = true
 
-  dns {
-    enabled = true
-  }
+  ips = [{
+    address = "10.101.0.1"
+    prefix  = 24
+    dhcp = {
+      ranges = [{
+        start = "10.101.0.2"
+        end   = "10.101.0.254"
+      }]
+    }
+  }]
 
-  dhcp {
-    enabled = true
+  forward = {
+    mode = "nat"
   }
 }
 
 resource "libvirt_network" "database" {
   name      = "db-network"
-  mode      = "nat"
-  addresses = ["10.102.0.0/24"]
   autostart = true
 
-  dns {
-    enabled = true
-  }
+  ips = [{
+    address = "10.102.0.1"
+    prefix  = 24
+    dhcp = {
+      ranges = [{
+        start = "10.102.0.2"
+        end   = "10.102.0.254"
+      }]
+    }
+  }]
 
-  dhcp {
-    enabled = true
+  forward = {
+    mode = "nat"
   }
 }
 
@@ -82,15 +97,15 @@ output "refactored_networks" {
   value = {
     production = {
       id   = libvirt_network.production.id
-      cidr = libvirt_network.production.addresses[0]
+      cidr = "${libvirt_network.production.ips[0].address}/${libvirt_network.production.ips[0].prefix}"
     }
     application = {
       id   = libvirt_network.application.id
-      cidr = libvirt_network.application.addresses[0]
+      cidr = "${libvirt_network.application.ips[0].address}/${libvirt_network.application.ips[0].prefix}"
     }
     database = {
       id   = libvirt_network.database.id
-      cidr = libvirt_network.database.addresses[0]
+      cidr = "${libvirt_network.database.ips[0].address}/${libvirt_network.database.ips[0].prefix}"
     }
   }
 }

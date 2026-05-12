@@ -15,7 +15,7 @@ output "bridge" {
   value       = libvirt_network.network.bridge
 }
 
-output "addresses" {
-  description = "Network address ranges"
-  value       = libvirt_network.network.addresses
+output "ips" {
+  description = "Network IP configuration"
+  value       = libvirt_network.network.ips
 }

@@ -33,46 +33,61 @@ import {
 # Resource definitions for imported networks
 resource "libvirt_network" "legacy" {
   name      = "legacy-network"
-  mode      = "nat"
-  addresses = ["10.100.0.0/24"]
   autostart = true
 
-  dns {
-    enabled = true
-  }
+  ips = [{
+    address = "10.100.0.1"
+    prefix  = 24
+    dhcp = {
+      ranges = [{
+        start = "10.100.0.2"
+        end   = "10.100.0.254"
+      }]
+    }
+  }]
 
-  dhcp {
-    enabled = true
+  forward = {
+    mode = "nat"
   }
 }
 
 resource "libvirt_network" "app" {
   name      = "app-network"
-  mode      = "nat"
-  addresses = ["10.101.0.0/24"]
   autostart = true
 
-  dns {
-    enabled = true
-  }
+  ips = [{
+    address = "10.101.0.1"
+    prefix  = 24
+    dhcp = {
+      ranges = [{
+        start = "10.101.0.2"
+        end   = "10.101.0.254"
+      }]
+    }
+  }]
 
-  dhcp {
-    enabled = true
+  forward = {
+    mode = "nat"
   }
 }
 
 resource "libvirt_network" "db" {
   name      = "db-network"
-  mode      = "nat"
-  addresses = ["10.102.0.0/24"]
   autostart = true
 
-  dns {
-    enabled = true
-  }
+  ips = [{
+    address = "10.102.0.1"
+    prefix  = 24
+    dhcp = {
+      ranges = [{
+        start = "10.102.0.2"
+        end   = "10.102.0.254"
+      }]
+    }
+  }]
 
-  dhcp {
-    enabled = true
+  forward = {
+    mode = "nat"
   }
 }
 
@@ -82,15 +97,15 @@ output "imported_networks" {
   value = {
     legacy = {
       id   = libvirt_network.legacy.id
-      cidr = libvirt_network.legacy.addresses[0]
+      cidr = "${libvirt_network.legacy.ips[0].address}/${libvirt_network.legacy.ips[0].prefix}"
     }
     app = {
       id   = libvirt_network.app.id
-      cidr = libvirt_network.app.addresses[0]
+      cidr = "${libvirt_network.app.ips[0].address}/${libvirt_network.app.ips[0].prefix}"
     }
     db = {
       id   = libvirt_network.db.id
-      cidr = libvirt_network.db.addresses[0]
+      cidr = "${libvirt_network.db.ips[0].address}/${libvirt_network.db.ips[0].prefix}"
     }
   }
 }

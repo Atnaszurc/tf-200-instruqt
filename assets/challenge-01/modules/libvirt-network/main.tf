@@ -12,16 +12,29 @@ terraform {
 
 resource "libvirt_network" "network" {
   name      = var.name
-  mode      = var.mode
-  domain    = var.domain
-  addresses = var.addresses
   autostart = var.autostart
 
-  # DHCP configuration
-  dynamic "dhcp" {
-    for_each = var.dhcp_enabled ? [1] : []
-    content {
-      enabled = true
+  # IP configuration from variable
+  ips = [
+    for addr in var.addresses : {
+      address = split("/", addr)[0]
+      prefix  = tonumber(split("/", addr)[1])
+      dhcp = var.dhcp_enabled ? {
+        ranges = [{
+          start = cidrhost(addr, 2)
+          end   = cidrhost(addr, -2)
+        }]
+      } : null
     }
+  ]
+
+  # Network forwarding mode
+  forward = {
+    mode = var.mode
+  }
+
+  # DNS domain configuration
+  domain = {
+    name = var.domain
   }
 }

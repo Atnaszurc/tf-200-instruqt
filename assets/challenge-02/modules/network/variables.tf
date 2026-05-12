@@ -20,3 +20,9 @@ variable "domain" {
   type        = string
   default     = "local"
 }
+
+variable "dhcp_enabled" {
+  description = "Enable DHCP on the network"
+  type        = bool
+  default     = true
+}
