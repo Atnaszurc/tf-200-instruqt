@@ -90,4 +90,3 @@ module "app_stack" {
   enable_canary     = contains(["staging", "prod"], var.environment)
   canary_percentage = var.environment == "prod" ? 20 : 10
 }
-EOF

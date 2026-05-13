@@ -18,7 +18,3 @@ output "server_count" {
   value       = length(libvirt_domain.frontend)
 }
 
-output "load_balancer_config" {
-  description = "Load balancer configuration file path"
-  value       = local_file.load_balancer_config.filename
-}

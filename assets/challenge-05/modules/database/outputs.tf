@@ -1,3 +1,4 @@
+output "network_id" {
   description = "ID of the database network"
   value       = libvirt_network.database.id
 }
@@ -21,3 +22,7 @@ output "total_server_count" {
   description = "Total number of database servers"
   value       = 1 + length(libvirt_domain.database_replica)
 }
+
+# Database Module
+
+## Description

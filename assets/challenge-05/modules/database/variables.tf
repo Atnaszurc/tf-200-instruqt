@@ -1,3 +1,4 @@
+variable "environment" {
   description = "Environment name (dev, staging, prod)"
   type        = string
 }
@@ -29,3 +30,4 @@ variable "replication_enabled" {
   type        = bool
   default     = false
 }
+

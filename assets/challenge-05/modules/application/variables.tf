@@ -1,3 +1,4 @@
+variable "environment" {
   description = "Environment name (dev, staging, prod)"
   type        = string
 }
@@ -45,3 +46,4 @@ variable "canary_percentage" {
     error_message = "Canary percentage must be between 0 and 50"
   }
 }
+

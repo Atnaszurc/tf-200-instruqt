@@ -1,3 +1,4 @@
+variable "config" {
   description = "Complete configuration object from YAML"
   type = object({
     environment = string
@@ -31,3 +32,4 @@ variable "canary_percentage" {
   type        = number
   default     = 10
 }
+

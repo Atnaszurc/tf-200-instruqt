@@ -1,3 +1,4 @@
+output "environment" {
   description = "Environment name"
   value       = var.config.environment
 }
@@ -35,3 +36,4 @@ output "stack_summary" {
   description = "Complete stack summary file"
   value       = local_file.stack_summary.filename
 }
+

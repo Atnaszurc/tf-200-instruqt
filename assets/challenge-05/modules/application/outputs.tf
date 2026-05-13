@@ -1,3 +1,4 @@
+output "network_id" {
   description = "ID of the application network"
   value       = libvirt_network.application.id
 }
@@ -21,3 +22,7 @@ output "service_discovery_config" {
   description = "Service discovery configuration file"
   value       = local_file.service_discovery.filename
 }
+
+# Application Module
+
+## Description
