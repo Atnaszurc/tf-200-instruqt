@@ -1020,18 +1020,20 @@ resource "libvirt_domain" "legacy" {
   vcpu   = 1
   type   = "kvm"
   
-  network_interface {
-    network_id = libvirt_network.legacy.id
-  }
-  
-  disk {
-    file = "/var/lib/libvirt/images/legacy/legacy-app-server.qcow2"
-  }
-  
-  console {
-    type        = "pty"
-    target_port = "0"
-    target_type = "serial"
+  devices = {
+    network_interfaces = [{
+      network_id = libvirt_network.legacy.id
+    }]
+    
+    disks = [{
+      file = "/var/lib/libvirt/images/legacy/legacy-app-server.qcow2"
+    }]
+    
+    consoles = [{
+      type        = "pty"
+      target_type = "serial"
+      target_port = 0
+    }]
   }
 }
 
