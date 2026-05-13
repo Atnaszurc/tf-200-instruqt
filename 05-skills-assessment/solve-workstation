@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Challenge 5: Skills Assessment - Solve Script
-# Provides a complete reference solution using pre-built asset files
+# Provides a complete reference solution using GitHub-hosted assets
 
 echo "==================================================================="
 echo "Challenge 5: Skills Assessment - Complete Solution"
@@ -19,16 +19,16 @@ rm -rf * .terraform* 2>/dev/null || true
 echo "✅ Workspace cleaned"
 echo ""
 
+# Clone GitHub repository with assets
+echo "📦 Cloning solution assets from GitHub..."
+cd /root
+rm -rf lab-assets
+git clone https://github.com/Atnaszurc/tf-200-instruqt.git lab-assets
+
 # Copy complete solution from assets
-echo "📦 Deploying solution from assets..."
-ASSETS_PATH="/opt/instruqt/tracks/05-skills-assessment/assets/solution"
-
-if [ ! -d "$ASSETS_PATH" ]; then
-    echo "❌ Error: Assets directory not found at $ASSETS_PATH"
-    exit 1
-fi
-
-cp -r "$ASSETS_PATH"/* .
+echo "📁 Deploying solution files..."
+cd /root/terraform
+cp -r /root/lab-assets/assets/challenge-05/* .
 echo "✅ Solution files deployed"
 echo ""
 
