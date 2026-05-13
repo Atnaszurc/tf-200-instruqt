@@ -15,7 +15,8 @@ cd /root/terraform
 
 # Clean up any leftover files from previous challenges
 echo "🧹 Cleaning workspace..."
-rm -rf * .terraform* 2>/dev/null || true
+# Remove all files and directories (including hidden ones except . and ..)
+find . -mindepth 1 -maxdepth 1 ! -name '.' ! -name '..' -exec rm -rf {} + 2>/dev/null || true
 echo "✅ Workspace cleaned"
 echo ""
 
