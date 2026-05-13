@@ -653,24 +653,29 @@ IMPORT_OUTPUT=$(terraform import libvirt_network.cli_imported cli-import-network
 IMPORT_EXIT=$?
 set -e  # Re-enable exit on error
 
-if [ $IMPORT_EXIT -ne 0 ]; then
+if [ $IMPORT_EXIT -eq 0 ]; then
+  # Step 3: Verify import
+  echo "✅ CLI import complete!"
+  terraform state show libvirt_network.cli_imported | head -10
+  echo ""
+
+  # Validate
+  if terraform plan -detailed-exitcode > /dev/null 2>&1; then
+    echo "✅ Validation successful: No configuration drift"
+  else
+    echo "⚠️  Configuration drift detected - adjust main.tf"
+  fi
+else
   echo "⚠️  Import encountered issues - this is a learning exercise"
   echo ""
   echo "DEBUG: Terraform output:"
   echo "$IMPORT_OUTPUT" | head -20
   echo ""
-fi
-
-# Step 3: Verify import
-echo "✅ CLI import complete!"
-terraform state show libvirt_network.cli_imported | head -10
-echo ""
-
-# Validate
-if terraform plan -detailed-exitcode > /dev/null 2>&1; then
-  echo "✅ Validation successful: No configuration drift"
-else
-  echo "⚠️  Configuration drift detected - adjust main.tf"
+  echo "   In practice, you would:"
+  echo "   1. Check if the network exists: virsh net-list --all"
+  echo "   2. Get the network UUID: virsh net-info <network-name>"
+  echo "   3. Use the UUID for import instead of the name"
+  echo ""
 fi
 
 echo ""
