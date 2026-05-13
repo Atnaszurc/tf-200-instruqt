@@ -47,6 +47,91 @@ sed -i '/^import {/,/^}/d' main.tf
 echo "✅ Import blocks removed"
 echo ""
 
+# Ensure legacy resources exist (in case setup script failed)
+echo "==================================================================="
+echo "Ensuring legacy resources exist..."
+echo "==================================================================="
+
+# Create legacy storage pool if it doesn't exist
+if ! virsh pool-list --all | grep -q legacy-pool; then
+  echo "Creating legacy storage pool..."
+  virsh pool-define-as legacy-pool dir - - - - "/var/lib/libvirt/images/legacy"
+  virsh pool-build legacy-pool
+  virsh pool-start legacy-pool
+  virsh pool-autostart legacy-pool
+  echo "✅ Legacy storage pool created"
+else
+  echo "✅ Legacy storage pool already exists"
+  # Ensure it's started
+  virsh pool-start legacy-pool 2>/dev/null || true
+fi
+
+# Create legacy network if it doesn't exist
+if ! virsh net-list --all | grep -q legacy-app-network; then
+  echo "Creating legacy-app-network..."
+  cat > /tmp/legacy-app-network.xml << 'NETEOF'
+<network>
+  <name>legacy-app-network</name>
+  <forward mode='nat'/>
+  <bridge name='virbr100' stp='on' delay='0'/>
+  <ip address='10.100.0.1' netmask='255.255.255.0'>
+    <dhcp>
+      <range start='10.100.0.2' end='10.100.0.254'/>
+    </dhcp>
+  </ip>
+</network>
+NETEOF
+  virsh net-define /tmp/legacy-app-network.xml
+  virsh net-start legacy-app-network
+  virsh net-autostart legacy-app-network
+  echo "✅ Legacy network created"
+else
+  echo "✅ Legacy network already exists"
+  # Ensure it's started
+  virsh net-start legacy-app-network 2>/dev/null || true
+fi
+
+# Create legacy domain if it doesn't exist
+if ! virsh list --all | grep -q legacy-app-server; then
+  echo "Creating legacy-app-server domain..."
+  
+  # Create disk if it doesn't exist
+  if [ ! -f /var/lib/libvirt/images/legacy/legacy-app-server.qcow2 ]; then
+    qemu-img create -f qcow2 /var/lib/libvirt/images/legacy/legacy-app-server.qcow2 1G
+  fi
+  
+  # Define the domain
+  cat > /tmp/legacy-app-server.xml << 'DOMEOF'
+<domain type='kvm'>
+  <name>legacy-app-server</name>
+  <memory unit='MiB'>512</memory>
+  <vcpu>1</vcpu>
+  <os>
+    <type arch='x86_64'>hvm</type>
+    <boot dev='hd'/>
+  </os>
+  <devices>
+    <disk type='file' device='disk'>
+      <driver name='qemu' type='qcow2'/>
+      <source file='/var/lib/libvirt/images/legacy/legacy-app-server.qcow2'/>
+      <target dev='vda' bus='virtio'/>
+    </disk>
+    <interface type='network'>
+      <source network='legacy-app-network'/>
+      <model type='virtio'/>
+    </interface>
+    <console type='pty'/>
+  </devices>
+</domain>
+DOMEOF
+  virsh define /tmp/legacy-app-server.xml
+  echo "✅ Legacy domain created"
+else
+  echo "✅ Legacy domain already exists"
+fi
+
+echo ""
+
 # Initialize Terraform
 echo "==================================================================="
 echo "Initializing Terraform..."
