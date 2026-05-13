@@ -1,13 +1,22 @@
+output "environment" {
+  description = "Current environment"
+  value       = var.environment
+}
+
+output "legacy_resources" {
+  description = "Imported legacy resources"
+  value = {
+    network = libvirt_network.legacy.name
+    server  = libvirt_domain.legacy.name
   }
 }
 
-# Deploy complete application stack
-module "app_stack" {
-  source = "./modules/app-stack"
-  
-  config = local.config
-  
-  # Enable canary for staging and prod
-  enable_canary     = contains(["staging", "prod"], var.environment)
-  canary_percentage = var.environment == "prod" ? 20 : 10
+output "app_stack" {
+  description = "Application stack outputs"
+  value       = module.app_stack
+}
+
+output "stack_summary" {
+  description = "Path to stack summary file"
+  value       = module.app_stack.stack_summary
 }
