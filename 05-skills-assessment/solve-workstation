@@ -564,7 +564,9 @@ resource "libvirt_pool" "backup" {
   
   name = "${var.environment}-backup-pool"
   type = "dir"
-  path = "/var/lib/libvirt/images/${var.environment}-backups"
+  target = {
+    path = "/var/lib/libvirt/images/${var.environment}-backups"
+  }
 }
 
 # Primary database server
