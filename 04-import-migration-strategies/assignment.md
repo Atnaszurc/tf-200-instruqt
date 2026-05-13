@@ -238,6 +238,39 @@ virsh net-dumpxml legacy-network
 
 You should see several networks including `legacy-network`, `app-network`, and `db-network`.
 
+### 🛠️ Helper Scripts Available
+
+To make your work easier, we've provided three utility scripts in `/root/terraform/`:
+
+**1. `discover-networks.sh`** - Network Discovery Tool
+```bash
+./discover-networks.sh
+```
+- Lists all libvirt networks with their UUIDs
+- Shows network configuration details
+- Provides import command examples
+- **Use this to find network UUIDs for imports!**
+
+**2. `backup-state.sh`** - State Backup Tool
+```bash
+./backup-state.sh [directory]
+```
+- Creates timestamped state backups
+- Useful before risky operations
+- Lists all existing backups
+- **Always backup before state manipulation!**
+
+**3. `validate-import.sh`** - Import Validation Tool
+```bash
+./validate-import.sh [directory]
+```
+- Validates imported resources
+- Checks for configuration drift
+- Lists resources in state
+- **Use this to verify your imports!**
+
+**💡 Pro Tip**: These scripts are optional helpers. You can accomplish everything using standard `terraform` and `virsh` commands, but these scripts make common tasks easier!
+
 ### Step 2: Create Import Configuration
 
 Create `imports.tf` with import blocks:
