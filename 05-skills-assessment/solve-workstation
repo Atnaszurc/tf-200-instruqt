@@ -10,6 +10,9 @@ echo ""
 
 cd /root/terraform
 
+# Create module directory structure
+mkdir -p modules/{frontend,application,database,app-stack}
+
 # ============================================================================
 # Solution 1: Frontend Module
 # ============================================================================
