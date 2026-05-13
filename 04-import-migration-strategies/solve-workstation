@@ -8,38 +8,29 @@ echo "Solving Challenge 4: Import & Migration Strategies..."
 echo ""
 
 # ============================================================================
-# Solution 1: Import Demo - Modern Import Blocks
+# Solution 1: Import Demo - CLI Import with UUIDs
 # ============================================================================
 echo "=== Solution 1: Import Demo ==="
-echo "Demonstrating modern import blocks with configuration generation..."
+echo "Demonstrating CLI import workflow with UUID resolution..."
 
 cd /root/terraform/import-demo
 
 # Initialize Terraform
 terraform init > /dev/null 2>&1
 
-# Step 1: Create import blocks
-cat > imports.tf << 'EOF'
-# Import existing networks into Terraform management
-# These import blocks are declarative and version-controlled
+# Step 1: Get UUIDs for existing networks
+echo "Resolving network UUIDs..."
+LEGACY_UUID=$(virsh net-uuid legacy-network 2>/dev/null || echo "")
+APP_UUID=$(virsh net-uuid app-network 2>/dev/null || echo "")
+DB_UUID=$(virsh net-uuid db-network 2>/dev/null || echo "")
 
-import {
-  to = libvirt_network.legacy
-  id = "legacy-network"
-}
+if [ -z "$LEGACY_UUID" ] || [ -z "$APP_UUID" ] || [ -z "$DB_UUID" ]; then
+  echo "❌ Failed to resolve network UUIDs"
+  echo "   Networks may not exist. Check setup."
+  exit 1
+fi
 
-import {
-  to = libvirt_network.app
-  id = "app-network"
-}
-
-import {
-  to = libvirt_network.db
-  id = "db-network"
-}
-EOF
-
-echo "✅ Created import blocks in imports.tf"
+echo "✅ Resolved UUIDs for all networks"
 
 # Step 2: Create initial resource definitions
 cat > networks.tf << 'EOF'
@@ -127,20 +118,29 @@ EOF
 
 echo "✅ Created resource definitions in networks.tf"
 
-# Step 3: Generate configuration from existing resources
-echo "Generating configuration from existing infrastructure..."
-terraform plan -generate-config-out=generated.tf > /dev/null 2>&1 || true
+# Step 3: Import using CLI with UUIDs
+echo "Importing networks into Terraform state using CLI..."
+echo "  - Importing legacy network (UUID: ${LEGACY_UUID:0:8}...)"
+terraform import libvirt_network.legacy "$LEGACY_UUID" > /dev/null 2>&1 || {
+  echo "⚠️  Failed to import legacy network"
+}
 
-if [ -f generated.tf ]; then
-  echo "✅ Generated configuration in generated.tf"
-  echo "   Review this file to see actual resource configuration"
-fi
+echo "  - Importing app network (UUID: ${APP_UUID:0:8}...)"
+terraform import libvirt_network.app "$APP_UUID" > /dev/null 2>&1 || {
+  echo "⚠️  Failed to import app network"
+}
 
-# Step 4: Import the resources
-echo "Importing networks into Terraform state..."
-if terraform apply -auto-approve 2>&1 | grep -q "Apply complete"; then
-  echo "✅ Import complete! Verifying..."
-  terraform state list 2>/dev/null || echo "  (State list unavailable)"
+echo "  - Importing db network (UUID: ${DB_UUID:0:8}...)"
+terraform import libvirt_network.db "$DB_UUID" > /dev/null 2>&1 || {
+  echo "⚠️  Failed to import db network"
+}
+
+# Step 4: Verify imports
+echo ""
+echo "Verifying imports..."
+if terraform state list 2>/dev/null | grep -q "libvirt_network"; then
+  echo "✅ Import complete! Resources in state:"
+  terraform state list 2>/dev/null | grep libvirt_network || true
   echo ""
   
   # Validate no changes needed
@@ -148,14 +148,12 @@ if terraform apply -auto-approve 2>&1 | grep -q "Apply complete"; then
     echo "✅ Validation successful: No configuration drift"
   else
     echo "⚠️  Configuration drift detected - this is normal with imports"
-    echo "   Review generated.tf and adjust networks.tf as needed"
+    echo "   The imported resources may have computed attributes"
+    echo "   that differ from the configuration."
   fi
 else
-  echo "⚠️  Import encountered issues - this is a learning exercise"
-  echo "   In practice, you would:"
-  echo "   1. Review the error messages"
-  echo "   2. Adjust your resource configuration to match actual state"
-  echo "   3. Re-run terraform apply"
+  echo "❌ Import verification failed - no resources in state"
+  echo "   This may indicate an issue with the import process"
 fi
 
 echo ""
