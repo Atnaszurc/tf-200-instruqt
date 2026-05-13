@@ -608,10 +608,7 @@ resource "libvirt_network" "application" {
 }
 EOF
 
-echo "✅ Cleaned up removed block"
-
-# Apply the cleanup to ensure state is consistent
-terraform apply -auto-approve > /dev/null 2>&1 || true
+echo "✅ Cleaned up removed block (no apply needed - resources already in state)"
 echo ""
 
 # ============================================================================
