@@ -304,10 +304,14 @@ resource "libvirt_network" "database" {
 }
 EOF
 
-# Initialize and import existing networks
+# Initialize and import existing networks into state
 cd /root/terraform/handoff-demo
 terraform init > /dev/null 2>&1
-terraform apply -auto-approve > /dev/null 2>&1
+
+# Import the existing networks (they were created by virsh earlier)
+terraform import libvirt_network.production legacy-network > /dev/null 2>&1 || true
+terraform import libvirt_network.application app-network > /dev/null 2>&1 || true
+terraform import libvirt_network.database db-network > /dev/null 2>&1 || true
 
 # ============================================================================
 # Setup 4: CLI Import Demo - Create network for CLI import practice
