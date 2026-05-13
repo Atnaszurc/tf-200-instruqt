@@ -885,7 +885,7 @@ terraform {
   required_providers {
     libvirt = {
       source  = "dmacvicar/libvirt"
-      version = "~> 0.7"
+      version = "~> 0.9"
     }
     local = {
       source  = "hashicorp/local"
@@ -1018,11 +1018,20 @@ echo ""
 echo "=== Applying Solution ==="
 
 # Initialize
-terraform init > /dev/null 2>&1
+echo "Initializing Terraform..."
+if ! terraform init > /dev/null 2>&1; then
+  echo "❌ Terraform init failed"
+  terraform init
+  exit 1
+fi
 
 # Apply for dev environment
 echo "Deploying dev environment..."
-TF_VAR_environment=dev terraform apply -auto-approve > /dev/null 2>&1
+if ! TF_VAR_environment=dev terraform apply -auto-approve 2>&1 | tee /tmp/apply.log | grep -q "Apply complete"; then
+  echo "❌ Terraform apply failed. Showing errors:"
+  cat /tmp/apply.log | tail -20
+  exit 1
+fi
 
 echo "✅ Dev environment deployed"
 
