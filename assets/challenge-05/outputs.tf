@@ -6,7 +6,7 @@ output "environment" {
 output "legacy_resources" {
   description = "Imported legacy resources"
   value = {
-    network = libvirt_network.legacy.name
+    network = "legacy-app-network (unmanaged)"
     server  = libvirt_domain.legacy.name
   }
 }
