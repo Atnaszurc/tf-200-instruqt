@@ -21,6 +21,11 @@ locals {
   config = yamldecode(file("${path.module}/config/${var.environment}.yaml"))
 }
 
+# Data source to reference existing legacy network (unmanaged)
+data "libvirt_network" "legacy" {
+  name = "legacy-app-network"
+}
+
 # Import legacy resources
 import {
   to = libvirt_domain.legacy
@@ -34,9 +39,13 @@ resource "libvirt_domain" "legacy" {
   vcpu   = 1
   type   = "kvm"
 
+  os = {
+    type = "hvm"
+  }
+
   devices = {
     network_interfaces = [{
-      network_id = libvirt_network.legacy.id
+      network_id = data.libvirt_network.legacy.id
     }]
 
     disks = [{
