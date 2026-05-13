@@ -993,6 +993,7 @@ resource "libvirt_domain" "legacy" {
   name   = "legacy-app-server"
   memory = 512
   vcpu   = 1
+  type   = "kvm"
   
   network_interface {
     network_id = libvirt_network.legacy.id
