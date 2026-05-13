@@ -76,22 +76,25 @@ resource "libvirt_domain" "frontend" {
   count = var.server_count
   
   name   = "${var.environment}-frontend-${count.index + 1}"
+  type   = "kvm"
   memory = 512
   vcpu   = 1
   
-  network_interfaces = [{
-    network_id = libvirt_network.frontend.id
-  }]
-  
-  disks = [{
-    volume_id = libvirt_volume.frontend[count.index].id
-  }]
-  
-  consoles = [{
-    type        = "pty"
-    target_port = "0"
-    target_type = "serial"
-  }]
+  devices = {
+    disks = [{
+      volume_id = libvirt_volume.frontend[count.index].id
+    }]
+    
+    network_interfaces = [{
+      network_id = libvirt_network.frontend.id
+    }]
+    
+    consoles = [{
+      type        = "pty"
+      target_type = "serial"
+      target_port = 0
+    }]
+  }
 }
 
 # Load balancer configuration (simulated)
@@ -294,23 +297,26 @@ resource "libvirt_domain" "application_stable" {
   count = local.stable_count
   
   name   = "${var.environment}-app-stable-${count.index + 1}"
+  type   = "kvm"
   memory = 1024
   vcpu   = 2
   
-  network_interfaces = [{
-    network_id     = libvirt_network.application.id
-    wait_for_lease = false
-  }]
-  
-  disks = [{
-    volume_id = libvirt_volume.application_stable[count.index].id
-  }]
-  
-  consoles = [{
-    type        = "pty"
-    target_port = "0"
-    target_type = "serial"
-  }]
+  devices = {
+    disks = [{
+      volume_id = libvirt_volume.application_stable[count.index].id
+    }]
+    
+    network_interfaces = [{
+      network_id     = libvirt_network.application.id
+      wait_for_lease = false
+    }]
+    
+    consoles = [{
+      type        = "pty"
+      target_type = "serial"
+      target_port = 0
+    }]
+  }
 }
 
 # Canary servers (conditional)
@@ -327,23 +333,26 @@ resource "libvirt_domain" "application_canary" {
   count = local.canary_count
   
   name   = "${var.environment}-app-canary-${count.index + 1}"
+  type   = "kvm"
   memory = 1024
   vcpu   = 2
   
-  network_interfaces = [{
-    network_id     = libvirt_network.application.id
-    wait_for_lease = false
-  }]
-  
-  disks = [{
-    volume_id = libvirt_volume.application_canary[count.index].id
-  }]
-  
-  consoles = [{
-    type        = "pty"
-    target_port = "0"
-    target_type = "serial"
-  }]
+  devices = {
+    disks = [{
+      volume_id = libvirt_volume.application_canary[count.index].id
+    }]
+    
+    network_interfaces = [{
+      network_id     = libvirt_network.application.id
+      wait_for_lease = false
+    }]
+    
+    consoles = [{
+      type        = "pty"
+      target_type = "serial"
+      target_port = 0
+    }]
+  }
 }
 
 # Service discovery configuration
@@ -553,23 +562,26 @@ resource "libvirt_volume" "database_primary" {
 
 resource "libvirt_domain" "database_primary" {
   name   = "${var.environment}-db-primary"
+  type   = "kvm"
   memory = 2048
   vcpu   = 2
   
-  network_interfaces = [{
-    network_id     = libvirt_network.database.id
-    wait_for_lease = false
-  }]
-  
-  disks = [{
-    volume_id = libvirt_volume.database_primary.id
-  }]
-  
-  consoles = [{
-    type        = "pty"
-    target_port = "0"
-    target_type = "serial"
-  }]
+  devices = {
+    disks = [{
+      volume_id = libvirt_volume.database_primary.id
+    }]
+    
+    network_interfaces = [{
+      network_id     = libvirt_network.database.id
+      wait_for_lease = false
+    }]
+    
+    consoles = [{
+      type        = "pty"
+      target_type = "serial"
+      target_port = 0
+    }]
+  }
 }
 
 # Replica database server (conditional)
@@ -586,23 +598,26 @@ resource "libvirt_domain" "database_replica" {
   count = var.replication_enabled ? var.server_count - 1 : 0
   
   name   = "${var.environment}-db-replica-${count.index + 1}"
+  type   = "kvm"
   memory = 2048
   vcpu   = 2
   
-  network_interfaces = [{
-    network_id     = libvirt_network.database.id
-    wait_for_lease = false
-  }]
-  
-  disks = [{
-    volume_id = libvirt_volume.database_replica[count.index].id
-  }]
-  
-  consoles = [{
-    type        = "pty"
-    target_port = "0"
-    target_type = "serial"
-  }]
+  devices = {
+    disks = [{
+      volume_id = libvirt_volume.database_replica[count.index].id
+    }]
+    
+    network_interfaces = [{
+      network_id     = libvirt_network.database.id
+      wait_for_lease = false
+    }]
+    
+    consoles = [{
+      type        = "pty"
+      target_type = "serial"
+      target_port = 0
+    }]
+  }
 }
 
 # Backup configuration
