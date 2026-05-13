@@ -18,7 +18,41 @@ cd /root/terraform/import-demo
 # Initialize Terraform
 terraform init > /dev/null 2>&1
 
-# Step 1: Get UUIDs for existing networks
+# Step 1: Create documentation file explaining the approach
+cat > imports.tf << 'EOF'
+# Import Strategy Documentation
+# ==============================
+#
+# This file documents the import strategy used for this demo.
+#
+# IMPORTANT: We are using CLI imports instead of import blocks because
+# the libvirt provider requires UUIDs for import operations, and import
+# blocks cannot use dynamic UUID resolution (bash commands).
+#
+# Import blocks would look like this (but won't work with libvirt):
+#   import {
+#     to = libvirt_network.legacy
+#     id = "legacy-network"  # ← This fails! Needs UUID, not name
+#   }
+#
+# Instead, we use CLI imports with dynamic UUID resolution:
+#   LEGACY_UUID=$(virsh net-uuid legacy-network)
+#   terraform import libvirt_network.legacy "$LEGACY_UUID"
+#
+# This approach works because:
+# 1. We can get UUIDs dynamically using virsh
+# 2. CLI imports accept the UUID as a parameter
+# 3. The import succeeds and resources are added to state
+#
+# Networks imported:
+# - libvirt_network.legacy (legacy-network)
+# - libvirt_network.app (app-network)
+# - libvirt_network.db (db-network)
+EOF
+
+echo "✅ Created import strategy documentation in imports.tf"
+
+# Step 2: Get UUIDs for existing networks
 echo "Resolving network UUIDs..."
 LEGACY_UUID=$(virsh net-uuid legacy-network 2>/dev/null || echo "")
 APP_UUID=$(virsh net-uuid app-network 2>/dev/null || echo "")
@@ -32,7 +66,7 @@ fi
 
 echo "✅ Resolved UUIDs for all networks"
 
-# Step 2: Create initial resource definitions
+# Step 3: Create initial resource definitions
 cat > networks.tf << 'EOF'
 # Network resource definitions
 # These will be refined after configuration generation
@@ -118,7 +152,7 @@ EOF
 
 echo "✅ Created resource definitions in networks.tf"
 
-# Step 3: Import using CLI with UUIDs
+# Step 4: Import using CLI with UUIDs
 echo "Importing networks into Terraform state using CLI..."
 echo "  - Importing legacy network (UUID: ${LEGACY_UUID:0:8}...)"
 terraform import libvirt_network.legacy "$LEGACY_UUID" > /dev/null 2>&1 || {
@@ -135,7 +169,7 @@ terraform import libvirt_network.db "$DB_UUID" > /dev/null 2>&1 || {
   echo "⚠️  Failed to import db network"
 }
 
-# Step 4: Verify imports
+# Step 5: Verify imports
 echo ""
 echo "Verifying imports..."
 if terraform state list 2>/dev/null | grep -q "libvirt_network"; then
