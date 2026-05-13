@@ -79,19 +79,19 @@ resource "libvirt_domain" "frontend" {
   memory = 512
   vcpu   = 1
   
-  network_interface {
+  network_interfaces = [{
     network_id = libvirt_network.frontend.id
-  }
+  }]
   
-  disk {
+  disks = [{
     volume_id = libvirt_volume.frontend[count.index].id
-  }
+  }]
   
-  console {
+  consoles = [{
     type        = "pty"
     target_port = "0"
     target_type = "serial"
-  }
+  }]
 }
 
 # Load balancer configuration (simulated)
@@ -297,20 +297,20 @@ resource "libvirt_domain" "application_stable" {
   memory = 1024
   vcpu   = 2
   
-  network_interface {
+  network_interfaces = [{
     network_id     = libvirt_network.application.id
     wait_for_lease = false
-  }
+  }]
   
-  disk {
+  disks = [{
     volume_id = libvirt_volume.application_stable[count.index].id
-  }
+  }]
   
-  console {
+  consoles = [{
     type        = "pty"
     target_port = "0"
     target_type = "serial"
-  }
+  }]
 }
 
 # Canary servers (conditional)
@@ -330,20 +330,20 @@ resource "libvirt_domain" "application_canary" {
   memory = 1024
   vcpu   = 2
   
-  network_interface {
+  network_interfaces = [{
     network_id     = libvirt_network.application.id
     wait_for_lease = false
-  }
+  }]
   
-  disk {
+  disks = [{
     volume_id = libvirt_volume.application_canary[count.index].id
-  }
+  }]
   
-  console {
+  consoles = [{
     type        = "pty"
     target_port = "0"
     target_type = "serial"
-  }
+  }]
 }
 
 # Service discovery configuration
@@ -556,20 +556,20 @@ resource "libvirt_domain" "database_primary" {
   memory = 2048
   vcpu   = 2
   
-  network_interface {
+  network_interfaces = [{
     network_id     = libvirt_network.database.id
     wait_for_lease = false
-  }
+  }]
   
-  disk {
+  disks = [{
     volume_id = libvirt_volume.database_primary.id
-  }
+  }]
   
-  console {
+  consoles = [{
     type        = "pty"
     target_port = "0"
     target_type = "serial"
-  }
+  }]
 }
 
 # Replica database server (conditional)
@@ -589,20 +589,20 @@ resource "libvirt_domain" "database_replica" {
   memory = 2048
   vcpu   = 2
   
-  network_interface {
+  network_interfaces = [{
     network_id     = libvirt_network.database.id
     wait_for_lease = false
-  }
+  }]
   
-  disk {
+  disks = [{
     volume_id = libvirt_volume.database_replica[count.index].id
-  }
+  }]
   
-  console {
+  consoles = [{
     type        = "pty"
     target_port = "0"
     target_type = "serial"
-  }
+  }]
 }
 
 # Backup configuration
