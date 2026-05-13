@@ -771,15 +771,13 @@ if [ $APPLY_EXIT -ne 0 ]; then
   echo ""
   echo "Note: Bulk import with for_each may require UUIDs instead of names."
   echo "This demonstrates the complexity of bulk import operations."
+  echo ""
 else
   echo "✅ Bulk import complete!"
+  echo "Imported resources:"
+  terraform state list
+  echo ""
 fi
-
-# Verify
-echo "✅ Bulk import complete!"
-echo "Imported resources:"
-terraform state list
-echo ""
 
 # ============================================================================
 # Solution 6: Migration Demo - Complete Scenario
