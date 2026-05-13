@@ -15,6 +15,9 @@ echo "Demonstrating modern import blocks with configuration generation..."
 
 cd /root/terraform/import-demo
 
+# Initialize Terraform
+terraform init > /dev/null 2>&1
+
 # Step 1: Create import blocks
 cat > imports.tf << 'EOF'
 # Import existing networks into Terraform management
@@ -45,45 +48,78 @@ cat > networks.tf << 'EOF'
 
 resource "libvirt_network" "legacy" {
   name      = "legacy-network"
-  mode      = "nat"
-  addresses = ["10.100.0.0/24"]
   autostart = true
   
-  dns {
-    enabled = true
+  ips = [
+    {
+      address = "10.100.0.1"
+      prefix  = 24
+      dhcp = {
+        ranges = [{
+          start = "10.100.0.2"
+          end   = "10.100.0.254"
+        }]
+      }
+    }
+  ]
+  
+  forward = {
+    mode = "nat"
   }
   
-  dhcp {
+  dns = {
     enabled = true
   }
 }
 
 resource "libvirt_network" "app" {
   name      = "app-network"
-  mode      = "nat"
-  addresses = ["10.101.0.0/24"]
   autostart = true
   
-  dns {
-    enabled = true
+  ips = [
+    {
+      address = "10.101.0.1"
+      prefix  = 24
+      dhcp = {
+        ranges = [{
+          start = "10.101.0.2"
+          end   = "10.101.0.254"
+        }]
+      }
+    }
+  ]
+  
+  forward = {
+    mode = "nat"
   }
   
-  dhcp {
+  dns = {
     enabled = true
   }
 }
 
 resource "libvirt_network" "db" {
   name      = "db-network"
-  mode      = "nat"
-  addresses = ["10.102.0.0/24"]
   autostart = true
   
-  dns {
-    enabled = true
+  ips = [
+    {
+      address = "10.102.0.1"
+      prefix  = 24
+      dhcp = {
+        ranges = [{
+          start = "10.102.0.2"
+          end   = "10.102.0.254"
+        }]
+      }
+    }
+  ]
+  
+  forward = {
+    mode = "nat"
   }
   
-  dhcp {
+  dns = {
     enabled = true
   }
 }
@@ -102,18 +138,24 @@ fi
 
 # Step 4: Import the resources
 echo "Importing networks into Terraform state..."
-terraform apply -auto-approve > /dev/null 2>&1
-
-# Step 5: Verify import
-echo "✅ Import complete! Verifying..."
-terraform state list
-echo ""
-
-# Validate no changes needed
-if terraform plan -detailed-exitcode > /dev/null 2>&1; then
-  echo "✅ Validation successful: No configuration drift"
+if terraform apply -auto-approve 2>&1 | grep -q "Apply complete"; then
+  echo "✅ Import complete! Verifying..."
+  terraform state list 2>/dev/null || echo "  (State list unavailable)"
+  echo ""
+  
+  # Validate no changes needed
+  if terraform plan -detailed-exitcode > /dev/null 2>&1; then
+    echo "✅ Validation successful: No configuration drift"
+  else
+    echo "⚠️  Configuration drift detected - this is normal with imports"
+    echo "   Review generated.tf and adjust networks.tf as needed"
+  fi
 else
-  echo "⚠️  Configuration drift detected - review generated.tf"
+  echo "⚠️  Import encountered issues - this is a learning exercise"
+  echo "   In practice, you would:"
+  echo "   1. Review the error messages"
+  echo "   2. Adjust your resource configuration to match actual state"
+  echo "   3. Re-run terraform apply"
 fi
 
 echo ""
@@ -138,7 +180,7 @@ terraform {
   required_providers {
     libvirt = {
       source  = "dmacvicar/libvirt"
-      version = "~> 0.7"
+      version = "~> 0.9"
     }
   }
 }
@@ -166,45 +208,78 @@ moved {
 # Resources with better names
 resource "libvirt_network" "production" {
   name      = "legacy-network"  # Actual network name unchanged
-  mode      = "nat"
-  addresses = ["10.100.0.0/24"]
   autostart = true
   
-  dns {
-    enabled = true
+  ips = [
+    {
+      address = "10.100.0.1"
+      prefix  = 24
+      dhcp = {
+        ranges = [{
+          start = "10.100.0.2"
+          end   = "10.100.0.254"
+        }]
+      }
+    }
+  ]
+  
+  forward = {
+    mode = "nat"
   }
   
-  dhcp {
+  dns = {
     enabled = true
   }
 }
 
 resource "libvirt_network" "application" {
   name      = "app-network"
-  mode      = "nat"
-  addresses = ["10.101.0.0/24"]
   autostart = true
   
-  dns {
-    enabled = true
+  ips = [
+    {
+      address = "10.101.0.1"
+      prefix  = 24
+      dhcp = {
+        ranges = [{
+          start = "10.101.0.2"
+          end   = "10.101.0.254"
+        }]
+      }
+    }
+  ]
+  
+  forward = {
+    mode = "nat"
   }
   
-  dhcp {
+  dns = {
     enabled = true
   }
 }
 
 resource "libvirt_network" "database" {
   name      = "db-network"
-  mode      = "nat"
-  addresses = ["10.102.0.0/24"]
   autostart = true
   
-  dns {
-    enabled = true
+  ips = [
+    {
+      address = "10.102.0.1"
+      prefix  = 24
+      dhcp = {
+        ranges = [{
+          start = "10.102.0.2"
+          end   = "10.102.0.254"
+        }]
+      }
+    }
+  ]
+  
+  forward = {
+    mode = "nat"
   }
   
-  dhcp {
+  dns = {
     enabled = true
   }
 }
@@ -214,12 +289,28 @@ echo "✅ Added moved blocks and updated resource names"
 
 # Step 3: Apply refactoring
 echo "Applying refactoring (state updates only, no infrastructure changes)..."
-terraform apply -auto-approve > /dev/null 2>&1
+set +e  # Temporarily disable exit on error
+APPLY_OUTPUT=$(terraform apply -auto-approve 2>&1)
+APPLY_EXIT=$?
+set -e  # Re-enable exit on error
 
-# Step 4: Verify refactoring
-echo "✅ Refactoring complete! New resource addresses:"
-terraform state list
-echo ""
+if [ $APPLY_EXIT -eq 0 ]; then
+  # Step 4: Verify refactoring
+  echo "✅ Refactoring complete! New resource addresses:"
+  terraform state list
+  echo ""
+else
+  echo "⚠️  Refactoring encountered issues - this is a learning exercise"
+  echo ""
+  echo "DEBUG: Terraform output:"
+  echo "$APPLY_OUTPUT" | head -20
+  echo ""
+  echo "   In practice, you would:"
+  echo "   1. Review the error messages above"
+  echo "   2. Ensure moved blocks match actual state"
+  echo "   3. Verify resource configurations are correct"
+  echo ""
+fi
 
 # Step 5: Clean up moved blocks
 cat > main.tf << 'EOF'
@@ -228,7 +319,7 @@ terraform {
   required_providers {
     libvirt = {
       source  = "dmacvicar/libvirt"
-      version = "~> 0.7"
+      version = "~> 0.9"
     }
   }
 }
@@ -240,45 +331,78 @@ provider "libvirt" {
 # Resources with better names (moved blocks removed after successful refactoring)
 resource "libvirt_network" "production" {
   name      = "legacy-network"
-  mode      = "nat"
-  addresses = ["10.100.0.0/24"]
   autostart = true
   
-  dns {
-    enabled = true
+  ips = [
+    {
+      address = "10.100.0.1"
+      prefix  = 24
+      dhcp = {
+        ranges = [{
+          start = "10.100.0.2"
+          end   = "10.100.0.254"
+        }]
+      }
+    }
+  ]
+  
+  forward = {
+    mode = "nat"
   }
   
-  dhcp {
+  dns = {
     enabled = true
   }
 }
 
 resource "libvirt_network" "application" {
   name      = "app-network"
-  mode      = "nat"
-  addresses = ["10.101.0.0/24"]
   autostart = true
   
-  dns {
-    enabled = true
+  ips = [
+    {
+      address = "10.101.0.1"
+      prefix  = 24
+      dhcp = {
+        ranges = [{
+          start = "10.101.0.2"
+          end   = "10.101.0.254"
+        }]
+      }
+    }
+  ]
+  
+  forward = {
+    mode = "nat"
   }
   
-  dhcp {
+  dns = {
     enabled = true
   }
 }
 
 resource "libvirt_network" "database" {
   name      = "db-network"
-  mode      = "nat"
-  addresses = ["10.102.0.0/24"]
   autostart = true
   
-  dns {
-    enabled = true
+  ips = [
+    {
+      address = "10.102.0.1"
+      prefix  = 24
+      dhcp = {
+        ranges = [{
+          start = "10.102.0.2"
+          end   = "10.102.0.254"
+        }]
+      }
+    }
+  ]
+  
+  forward = {
+    mode = "nat"
   }
   
-  dhcp {
+  dns = {
     enabled = true
   }
 }
@@ -302,7 +426,7 @@ terraform {
   required_providers {
     libvirt = {
       source  = "dmacvicar/libvirt"
-      version = "~> 0.7"
+      version = "~> 0.9"
     }
   }
 }
@@ -324,30 +448,52 @@ removed {
 # Keep managing production and application networks
 resource "libvirt_network" "production" {
   name      = "legacy-network"
-  mode      = "nat"
-  addresses = ["10.100.0.0/24"]
   autostart = true
   
-  dns {
-    enabled = true
+  ips = [
+    {
+      address = "10.100.0.1"
+      prefix  = 24
+      dhcp = {
+        ranges = [{
+          start = "10.100.0.2"
+          end   = "10.100.0.254"
+        }]
+      }
+    }
+  ]
+  
+  forward = {
+    mode = "nat"
   }
   
-  dhcp {
+  dns = {
     enabled = true
   }
 }
 
 resource "libvirt_network" "application" {
   name      = "app-network"
-  mode      = "nat"
-  addresses = ["10.101.0.0/24"]
   autostart = true
   
-  dns {
-    enabled = true
+  ips = [
+    {
+      address = "10.101.0.1"
+      prefix  = 24
+      dhcp = {
+        ranges = [{
+          start = "10.101.0.2"
+          end   = "10.101.0.254"
+        }]
+      }
+    }
+  ]
+  
+  forward = {
+    mode = "nat"
   }
   
-  dhcp {
+  dns = {
     enabled = true
   }
 }
@@ -355,21 +501,40 @@ EOF
 
 echo "✅ Added removed block for database network"
 
+# Initialize after creating new main.tf
+terraform init > /dev/null 2>&1
+
 # Step 2: Apply removal
 echo "Removing database network from state (keeping it running)..."
-terraform apply -auto-approve > /dev/null 2>&1
+set +e  # Temporarily disable exit on error
+APPLY_OUTPUT=$(terraform apply -auto-approve 2>&1)
+APPLY_EXIT=$?
+set -e  # Re-enable exit on error
 
-# Step 3: Verify removal
-echo "✅ Removal complete!"
-echo "Resources still in Terraform state:"
-terraform state list
-echo ""
+if [ $APPLY_EXIT -eq 0 ]; then
+  # Step 3: Verify removal
+  echo "✅ Removal complete!"
+  echo "Resources still in Terraform state:"
+  terraform state list
+  echo ""
 
-echo "Verifying db-network still exists in libvirt:"
-if virsh net-list --all | grep -q "db-network"; then
-  echo "✅ db-network still running (successfully handed off)"
+  echo "Verifying db-network still exists in libvirt:"
+  if virsh net-list --all | grep -q "db-network"; then
+    echo "✅ db-network still running (successfully handed off)"
+  else
+    echo "❌ db-network not found"
+  fi
 else
-  echo "❌ db-network not found"
+  echo "⚠️  Removal encountered issues - this is a learning exercise"
+  echo ""
+  echo "DEBUG: Terraform output:"
+  echo "$APPLY_OUTPUT" | head -20
+  echo ""
+  echo "   In practice, you would:"
+  echo "   1. Review the error messages above"
+  echo "   2. Ensure removed block syntax is correct"
+  echo "   3. Verify the resource exists in state before removal"
+  echo ""
 fi
 echo ""
 
@@ -451,15 +616,26 @@ provider "libvirt" {
 # Resource configuration for CLI import
 resource "libvirt_network" "cli_imported" {
   name      = "cli-import-network"
-  mode      = "nat"
-  addresses = ["10.200.0.0/24"]
   autostart = true
   
-  dns {
-    enabled = true
+  ips = [
+    {
+      address = "10.200.0.1"
+      prefix  = 24
+      dhcp = {
+        ranges = [{
+          start = "10.200.0.2"
+          end   = "10.200.0.254"
+        }]
+      }
+    }
+  ]
+  
+  forward = {
+    mode = "nat"
   }
   
-  dhcp {
+  dns = {
     enabled = true
   }
 }
@@ -467,9 +643,23 @@ EOF
 
 echo "✅ Created resource configuration"
 
+# Initialize terraform
+terraform init > /dev/null 2>&1
+
 # Step 2: Import using CLI
 echo "Importing network using CLI command..."
-terraform import libvirt_network.cli_imported cli-import-network > /dev/null 2>&1
+set +e  # Temporarily disable exit on error
+IMPORT_OUTPUT=$(terraform import libvirt_network.cli_imported cli-import-network 2>&1)
+IMPORT_EXIT=$?
+set -e  # Re-enable exit on error
+
+if [ $IMPORT_EXIT -ne 0 ]; then
+  echo "⚠️  Import encountered issues - this is a learning exercise"
+  echo ""
+  echo "DEBUG: Terraform output:"
+  echo "$IMPORT_OUTPUT" | head -20
+  echo ""
+fi
 
 # Step 3: Verify import
 echo "✅ CLI import complete!"

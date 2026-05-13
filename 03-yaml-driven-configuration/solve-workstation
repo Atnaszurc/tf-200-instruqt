@@ -54,16 +54,27 @@ resource "libvirt_network" "networks" {
   for_each = local.networks
   
   name      = each.value.name
-  mode      = each.value.mode
-  domain    = each.value.domain
   autostart = each.value.autostart
   
-  ips = {
-    address = cidrhost(each.value.cidr, 1)
-    prefix_length = tonumber(split("/", each.value.cidr)[1])
-    dhcp = {
-      enabled = true
+  ips = [
+    {
+      address = split("/", each.value.cidr)[0]
+      prefix  = tonumber(split("/", each.value.cidr)[1])
+      dhcp = {
+        ranges = [{
+          start = cidrhost(each.value.cidr, 2)
+          end   = cidrhost(each.value.cidr, -2)
+        }]
+      }
     }
+  ]
+  
+  forward = {
+    mode = each.value.mode
+  }
+  
+  domain = {
+    name = each.value.domain
   }
 }
 
@@ -87,16 +98,27 @@ resource "libvirt_network" "infra_networks" {
   for_each = local.infra_networks
   
   name      = "${local.infra_env.name}-${each.key}-network"
-  mode      = each.value.mode
-  domain    = each.value.domain
   autostart = true
   
-  ips = {
-    address = cidrhost(each.value.cidr, 1)
-    prefix_length = tonumber(split("/", each.value.cidr)[1])
-    dhcp = {
-      enabled = true
+  ips = [
+    {
+      address = split("/", each.value.cidr)[0]
+      prefix  = tonumber(split("/", each.value.cidr)[1])
+      dhcp = {
+        ranges = [{
+          start = cidrhost(each.value.cidr, 2)
+          end   = cidrhost(each.value.cidr, -2)
+        }]
+      }
     }
+  ]
+  
+  forward = {
+    mode = each.value.mode
+  }
+  
+  domain = {
+    name = each.value.domain
   }
 }
 
