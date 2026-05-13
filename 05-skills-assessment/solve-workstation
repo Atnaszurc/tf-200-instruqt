@@ -21,15 +21,24 @@ cat > modules/frontend/main.tf << 'EOF'
 
 resource "libvirt_network" "frontend" {
   name      = "${var.environment}-frontend-network"
-  mode      = "nat"
-  addresses = [var.network_cidr]
   autostart = true
   
-  dns {
-    enabled = true
+  ips = [{
+    address = split("/", var.network_cidr)[0]
+    prefix  = tonumber(split("/", var.network_cidr)[1])
+    dhcp = {
+      ranges = [{
+        start = cidrhost(var.network_cidr, 2)
+        end   = cidrhost(var.network_cidr, -2)
+      }]
+    }
+  }]
+  
+  forward = {
+    mode = "nat"
   }
   
-  dhcp {
+  dns = {
     enabled = true
   }
 }
@@ -214,15 +223,24 @@ cat > modules/application/main.tf << 'EOF'
 
 resource "libvirt_network" "application" {
   name      = "${var.environment}-application-network"
-  mode      = "nat"
-  addresses = [var.network_cidr]
   autostart = true
   
-  dns {
-    enabled = true
+  ips = [{
+    address = split("/", var.network_cidr)[0]
+    prefix  = tonumber(split("/", var.network_cidr)[1])
+    dhcp = {
+      ranges = [{
+        start = cidrhost(var.network_cidr, 2)
+        end   = cidrhost(var.network_cidr, -2)
+      }]
+    }
+  }]
+  
+  forward = {
+    mode = "nat"
   }
   
-  dhcp {
+  dns = {
     enabled = true
   }
 }
@@ -456,15 +474,24 @@ cat > modules/database/main.tf << 'EOF'
 
 resource "libvirt_network" "database" {
   name      = "${var.environment}-database-network"
-  mode      = "nat"
-  addresses = [var.network_cidr]
   autostart = true
   
-  dns {
-    enabled = true
+  ips = [{
+    address = split("/", var.network_cidr)[0]
+    prefix  = tonumber(split("/", var.network_cidr)[1])
+    dhcp = {
+      ranges = [{
+        start = cidrhost(var.network_cidr, 2)
+        end   = cidrhost(var.network_cidr, -2)
+      }]
+    }
+  }]
+  
+  forward = {
+    mode = "nat"
   }
   
-  dhcp {
+  dns = {
     enabled = true
   }
 }
@@ -887,15 +914,24 @@ import {
 # Legacy resources (imported)
 resource "libvirt_network" "legacy" {
   name      = "legacy-app-network"
-  mode      = "nat"
-  addresses = ["10.100.0.0/24"]
   autostart = true
   
-  dns {
-    enabled = true
+  ips = [{
+    address = "10.100.0.1"
+    prefix  = 24
+    dhcp = {
+      ranges = [{
+        start = "10.100.0.2"
+        end   = "10.100.0.254"
+      }]
+    }
+  }]
+  
+  forward = {
+    mode = "nat"
   }
   
-  dhcp {
+  dns = {
     enabled = true
   }
 }
