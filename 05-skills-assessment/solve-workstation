@@ -184,7 +184,7 @@ echo ""
 echo "==================================================================="
 echo "Planning deployment..."
 echo "==================================================================="
-terraform plan
+terraform plan -var="legacy_network_uuid=$NETWORK_UUID"
 echo ""
 
 # Apply configuration with legacy network UUID
