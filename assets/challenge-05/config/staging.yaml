@@ -2,17 +2,17 @@ environment: staging
 
 frontend:
   server_count: 2
-  network_cidr: "10.20.0.0/24"
+  network_cidr: "192.168.20.0/24"
   monitoring_enabled: true
 
 application:
   server_count: 3
-  network_cidr: "10.21.0.0/24"
+  network_cidr: "192.168.21.0/24"
   caching_enabled: true
 
 database:
   server_count: 1
-  network_cidr: "10.22.0.0/24"
+  network_cidr: "192.168.22.0/24"
   backup_enabled: true
   replication_enabled: false
 

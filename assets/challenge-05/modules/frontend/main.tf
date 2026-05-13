@@ -81,7 +81,8 @@ resource "local_file" "load_balancer_config" {
     backend_servers = [
       for i, domain in libvirt_domain.frontend : {
         name = domain.name
-        ip   = "10.${var.environment == "dev" ? "10" : var.environment == "staging" ? "20" : "30"}.0.${i + 10}"
+        # Calculate IP from network_cidr: 192.168.X.0/24 -> 192.168.X.(10+i)
+        ip = "${cidrhost(var.network_cidr, 0)}.${10 + i}"
       }
     ]
     health_check_enabled = true

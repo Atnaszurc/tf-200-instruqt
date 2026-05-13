@@ -36,22 +36,22 @@ import {
 resource "libvirt_network" "legacy" {
   name      = "legacy-app-network"
   autostart = true
-  
+
   ips = [{
-    address = "10.100.0.1"
+    address = "192.168.100.1"
     prefix  = 24
     dhcp = {
       ranges = [{
-        start = "10.100.0.2"
-        end   = "10.100.0.254"
+        start = "192.168.100.2"
+        end   = "192.168.100.254"
       }]
     }
   }]
-  
+
   forward = {
     mode = "nat"
   }
-  
+
   dns = {
     enabled = true
   }
@@ -62,16 +62,16 @@ resource "libvirt_domain" "legacy" {
   memory = 512
   vcpu   = 1
   type   = "kvm"
-  
+
   devices = {
     network_interfaces = [{
       network_id = libvirt_network.legacy.id
     }]
-    
+
     disks = [{
       file = "/var/lib/libvirt/images/legacy/legacy-app-server.qcow2"
     }]
-    
+
     consoles = [{
       type        = "pty"
       target_type = "serial"
@@ -83,9 +83,9 @@ resource "libvirt_domain" "legacy" {
 # Deploy complete application stack
 module "app_stack" {
   source = "./modules/app-stack"
-  
+
   config = local.config
-  
+
   # Enable canary for staging and prod
   enable_canary     = contains(["staging", "prod"], var.environment)
   canary_percentage = var.environment == "prod" ? 20 : 10

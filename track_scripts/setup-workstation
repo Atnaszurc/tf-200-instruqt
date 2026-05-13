@@ -71,6 +71,20 @@ cd /root/terraform-workspace
 # Set up default libvirt network
 virsh net-list --all | grep -q default || virsh net-define /usr/share/libvirt/networks/default.xml
 virsh net-start default 2>/dev/null || true
+# Create default storage pool if it doesn't exist
+echo "Setting up default storage pool..."
+if ! virsh pool-list --all | grep -q "default"; then
+    virsh pool-define-as default dir - - - - "/var/lib/libvirt/images"
+    virsh pool-build default
+    virsh pool-start default
+    virsh pool-autostart default
+    echo "✓ Default storage pool created"
+else
+    virsh pool-start default 2>/dev/null || true
+    virsh pool-autostart default
+    echo "✓ Default storage pool already exists"
+fi
+
 virsh net-autostart default
 
 # Install helpful tools
