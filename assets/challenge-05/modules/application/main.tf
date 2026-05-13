@@ -12,7 +12,7 @@ terraform {
 resource "libvirt_network" "application" {
   name      = "${var.environment}-application-network"
   autostart = true
-  
+
   ips = [{
     address = split("/", var.network_cidr)[0]
     prefix  = tonumber(split("/", var.network_cidr)[1])
@@ -23,11 +23,11 @@ resource "libvirt_network" "application" {
       }]
     }
   }]
-  
+
   forward = {
     mode = "nat"
   }
-  
+
   dns = {
     enabled = true
   }
@@ -42,11 +42,11 @@ locals {
 # Stable servers
 resource "libvirt_volume" "application_stable" {
   count = local.stable_count
-  
+
   name     = "${var.environment}-app-stable-${count.index + 1}.qcow2"
   pool     = "default"
   capacity = 2147483648 # 2GB
-  
+
   target = {
     format = {
       type = "qcow2"
@@ -56,22 +56,26 @@ resource "libvirt_volume" "application_stable" {
 
 resource "libvirt_domain" "application_stable" {
   count = local.stable_count
-  
+
   name   = "${var.environment}-app-stable-${count.index + 1}"
   type   = "kvm"
   memory = 1024
   vcpu   = 2
-  
+
+  os = {
+    type = "hvm"
+  }
+
   devices = {
     disks = [{
       volume_id = libvirt_volume.application_stable[count.index].id
     }]
-    
+
     network_interfaces = [{
       network_id     = libvirt_network.application.id
       wait_for_lease = false
     }]
-    
+
     consoles = [{
       type        = "pty"
       target_type = "serial"
@@ -83,11 +87,11 @@ resource "libvirt_domain" "application_stable" {
 # Canary servers (conditional)
 resource "libvirt_volume" "application_canary" {
   count = local.canary_count
-  
+
   name     = "${var.environment}-app-canary-${count.index + 1}.qcow2"
   pool     = "default"
   capacity = 2147483648 # 2GB
-  
+
   target = {
     format = {
       type = "qcow2"
@@ -97,22 +101,22 @@ resource "libvirt_volume" "application_canary" {
 
 resource "libvirt_domain" "application_canary" {
   count = local.canary_count
-  
+
   name   = "${var.environment}-app-canary-${count.index + 1}"
   type   = "kvm"
   memory = 1024
   vcpu   = 2
-  
+
   devices = {
     disks = [{
       volume_id = libvirt_volume.application_canary[count.index].id
     }]
-    
+
     network_interfaces = [{
       network_id     = libvirt_network.application.id
       wait_for_lease = false
     }]
-    
+
     consoles = [{
       type        = "pty"
       target_type = "serial"
@@ -145,7 +149,7 @@ resource "local_file" "service_discovery" {
 # Caching configuration (conditional)
 resource "local_file" "cache_config" {
   count = var.caching_enabled ? 1 : 0
-  
+
   filename = "${path.root}/generated/${var.environment}-cache-config.json"
   content = jsonencode({
     environment = var.environment

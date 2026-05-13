@@ -56,6 +56,10 @@ resource "libvirt_domain" "frontend" {
   memory = 512
   vcpu   = 1
 
+  os = {
+    type = "hvm"
+  }
+
   devices = {
     disks = [{
       volume_id = libvirt_volume.frontend[count.index].id

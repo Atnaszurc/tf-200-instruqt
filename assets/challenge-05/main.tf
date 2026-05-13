@@ -23,40 +23,11 @@ locals {
 
 # Import legacy resources
 import {
-  to = libvirt_network.legacy
-  id = "legacy-app-network"
-}
-
-import {
   to = libvirt_domain.legacy
   id = "legacy-app-server"
 }
 
-# Legacy resources (imported)
-resource "libvirt_network" "legacy" {
-  name      = "legacy-app-network"
-  autostart = true
-
-  ips = [{
-    address = "192.168.100.1"
-    prefix  = 24
-    dhcp = {
-      ranges = [{
-        start = "192.168.100.2"
-        end   = "192.168.100.254"
-      }]
-    }
-  }]
-
-  forward = {
-    mode = "nat"
-  }
-
-  dns = {
-    enabled = true
-  }
-}
-
+# Legacy domain (imported) - network is left unmanaged to avoid provider bug
 resource "libvirt_domain" "legacy" {
   name   = "legacy-app-server"
   memory = 512
