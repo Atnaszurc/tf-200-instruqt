@@ -200,10 +200,14 @@ resource "libvirt_network" "db" {
 }
 EOF
 
-# Initialize and apply to create initial state
+# Initialize and import existing networks into state
 cd /root/terraform/refactor-demo
 terraform init > /dev/null 2>&1
-terraform apply -auto-approve > /dev/null 2>&1
+
+# Import the existing networks (they were created by virsh earlier)
+terraform import libvirt_network.legacy legacy-network > /dev/null 2>&1 || true
+terraform import libvirt_network.app app-network > /dev/null 2>&1 || true
+terraform import libvirt_network.db db-network > /dev/null 2>&1 || true
 
 # ============================================================================
 # Setup 3: Handoff Demo - Prepare for removed blocks practice
