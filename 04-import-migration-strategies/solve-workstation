@@ -603,14 +603,13 @@ echo "✅ Created resource configuration"
 # Initialize terraform
 terraform init > /dev/null 2>&1
 
-# Step 2: Import using CLI
+# Step 2: Import using CLI with UUID
 echo "Importing network using CLI command..."
-set +e  # Temporarily disable exit on error
-IMPORT_OUTPUT=$(terraform import libvirt_network.cli_imported cli-import-network 2>&1)
-IMPORT_EXIT=$?
-set -e  # Re-enable exit on error
+CLI_UUID=$(virsh net-uuid cli-import-network 2>/dev/null || echo "")
 
-if [ $IMPORT_EXIT -eq 0 ]; then
+if [ -n "$CLI_UUID" ]; then
+  terraform import libvirt_network.cli_imported "$CLI_UUID" > /dev/null 2>&1
+  
   # Step 3: Verify import
   echo "✅ CLI import complete!"
   terraform state show libvirt_network.cli_imported | head -10
@@ -623,16 +622,7 @@ if [ $IMPORT_EXIT -eq 0 ]; then
     echo "⚠️  Configuration drift detected - adjust main.tf"
   fi
 else
-  echo "⚠️  Import encountered issues - this is a learning exercise"
-  echo ""
-  echo "DEBUG: Terraform output:"
-  echo "$IMPORT_OUTPUT" | head -20
-  echo ""
-  echo "   In practice, you would:"
-  echo "   1. Check if the network exists: virsh net-list --all"
-  echo "   2. Get the network UUID: virsh net-info <network-name>"
-  echo "   3. Use the UUID for import instead of the name"
-  echo ""
+  echo "⚠️  Network cli-import-network not found"
 fi
 
 echo ""
@@ -667,13 +657,6 @@ locals {
     "tier2" = { name = "tier2-network", cidr = "10.20.0.0/24" }
     "tier3" = { name = "tier3-network", cidr = "10.30.0.0/24" }
   }
-}
-
-# Bulk import with for_each
-import {
-  for_each = local.networks
-  to       = libvirt_network.tiers[each.key]
-  id       = each.value.name
 }
 
 resource "libvirt_network" "tiers" {
@@ -711,23 +694,20 @@ echo "✅ Created bulk import configuration with for_each"
 echo "Initializing Terraform..."
 terraform init > /dev/null 2>&1
 
-# Generate configuration
-echo "Generating configuration for all networks..."
-terraform plan -generate-config-out=generated.tf > /dev/null 2>&1 || true
+# Bulk import using CLI (import blocks don't support dynamic UUIDs)
+echo "Importing all tier networks using CLI..."
+TIER1_UUID=$(virsh net-uuid tier1-network 2>/dev/null || echo "")
+TIER2_UUID=$(virsh net-uuid tier2-network 2>/dev/null || echo "")
+TIER3_UUID=$(virsh net-uuid tier3-network 2>/dev/null || echo "")
 
-# Import all networks with error handling
-echo "Importing all tier networks..."
-set +e
-APPLY_OUTPUT=$(terraform apply -auto-approve 2>&1)
-APPLY_EXIT=$?
-set -e
-
-if [ $APPLY_EXIT -ne 0 ]; then
-  echo "⚠️  Bulk import encountered issues (this is expected for learning):"
-  echo "$APPLY_OUTPUT" | head -20
-  echo ""
-  echo "Note: Bulk import with for_each may require UUIDs instead of names."
-  echo "This demonstrates the complexity of bulk import operations."
+if [ -n "$TIER1_UUID" ] && [ -n "$TIER2_UUID" ] && [ -n "$TIER3_UUID" ]; then
+  terraform import 'libvirt_network.tiers["tier1"]' "$TIER1_UUID" > /dev/null 2>&1
+  terraform import 'libvirt_network.tiers["tier2"]' "$TIER2_UUID" > /dev/null 2>&1
+  terraform import 'libvirt_network.tiers["tier3"]' "$TIER3_UUID" > /dev/null 2>&1
+  
+  echo "✅ Bulk import complete!"
+  echo "Imported resources:"
+  terraform state list
   echo ""
 else
   echo "✅ Bulk import complete!"
@@ -776,7 +756,7 @@ echo "✅ Created migration plan"
 terraform state pull > backup-$(date +%Y%m%d-%H%M%S).tfstate 2>/dev/null || true
 echo "✅ State backed up"
 
-# Step 3: Create import configuration
+# Step 3: Create resource configuration (without import blocks)
 cat > main.tf << 'EOF'
 terraform {
   required_version = ">= 1.7.0"
@@ -790,22 +770,6 @@ terraform {
 
 provider "libvirt" {
   uri = "qemu:///system"
-}
-
-# Import legacy networks with better names
-import {
-  to = libvirt_network.production
-  id = "legacy-net-1"
-}
-
-import {
-  to = libvirt_network.staging
-  id = "legacy-net-2"
-}
-
-import {
-  to = libvirt_network.handoff
-  id = "legacy-net-3"
 }
 
 resource "libvirt_network" "production" {
@@ -887,26 +851,25 @@ resource "libvirt_network" "handoff" {
 }
 EOF
 
-echo "✅ Created import configuration"
+echo "✅ Created resource configuration"
 
 # Initialize Terraform
 terraform init > /dev/null 2>&1
 
-# Step 4: Import networks with error handling
+# Step 4: Import networks using CLI with UUIDs
 echo "Importing networks..."
-set +e
-APPLY_OUTPUT=$(terraform apply -auto-approve 2>&1)
-APPLY_EXIT=$?
-set -e
+NET1_UUID=$(virsh net-uuid legacy-net-1 2>/dev/null || echo "")
+NET2_UUID=$(virsh net-uuid legacy-net-2 2>/dev/null || echo "")
+NET3_UUID=$(virsh net-uuid legacy-net-3 2>/dev/null || echo "")
 
-if [ $APPLY_EXIT -ne 0 ]; then
-  echo "⚠️  Import encountered issues:"
-  echo "$APPLY_OUTPUT" | head -20
-else
+if [ -n "$NET1_UUID" ] && [ -n "$NET2_UUID" ] && [ -n "$NET3_UUID" ]; then
+  terraform import libvirt_network.production "$NET1_UUID" > /dev/null 2>&1
+  terraform import libvirt_network.staging "$NET2_UUID" > /dev/null 2>&1
+  terraform import libvirt_network.handoff "$NET3_UUID" > /dev/null 2>&1
   echo "✅ Networks imported"
+else
+  echo "⚠️  Some networks not found"
 fi
-
-echo "✅ Networks imported"
 
 # Step 5: Hand off legacy-net-3
 cat > main.tf << 'EOF'
