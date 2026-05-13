@@ -30,6 +30,15 @@ cat > modules/frontend/main.tf << 'EOF'
 # Frontend Module - Web Tier
 # Manages web servers, network, and load balancer configuration
 
+terraform {
+  required_providers {
+    libvirt = {
+      source  = "dmacvicar/libvirt"
+      version = "~> 0.9"
+    }
+  }
+}
+
 resource "libvirt_network" "frontend" {
   name      = "${var.environment}-frontend-network"
   autostart = true
@@ -231,6 +240,15 @@ echo "=== Creating Application Module ==="
 cat > modules/application/main.tf << 'EOF'
 # Application Module - App Tier
 # Manages application servers, network, and service discovery
+
+terraform {
+  required_providers {
+    libvirt = {
+      source  = "dmacvicar/libvirt"
+      version = "~> 0.9"
+    }
+  }
+}
 
 resource "libvirt_network" "application" {
   name      = "${var.environment}-application-network"
@@ -482,6 +500,15 @@ echo "=== Creating Database Module ==="
 cat > modules/database/main.tf << 'EOF'
 # Database Module - Data Tier
 # Manages database servers, network, and backup infrastructure
+
+terraform {
+  required_providers {
+    libvirt = {
+      source  = "dmacvicar/libvirt"
+      version = "~> 0.9"
+    }
+  }
+}
 
 resource "libvirt_network" "database" {
   name      = "${var.environment}-database-network"
