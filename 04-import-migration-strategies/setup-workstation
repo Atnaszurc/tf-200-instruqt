@@ -204,10 +204,14 @@ EOF
 cd /root/terraform/refactor-demo
 terraform init > /dev/null 2>&1
 
-# Import the existing networks (they were created by virsh earlier)
-terraform import libvirt_network.legacy legacy-network > /dev/null 2>&1 || true
-terraform import libvirt_network.app app-network > /dev/null 2>&1 || true
-terraform import libvirt_network.db db-network > /dev/null 2>&1 || true
+# Import the existing networks using their UUIDs (libvirt provider requires UUIDs)
+LEGACY_UUID=$(virsh net-uuid legacy-network)
+APP_UUID=$(virsh net-uuid app-network)
+DB_UUID=$(virsh net-uuid db-network)
+
+terraform import libvirt_network.legacy "$LEGACY_UUID" > /dev/null 2>&1 || true
+terraform import libvirt_network.app "$APP_UUID" > /dev/null 2>&1 || true
+terraform import libvirt_network.db "$DB_UUID" > /dev/null 2>&1 || true
 
 # ============================================================================
 # Setup 3: Handoff Demo - Prepare for removed blocks practice
@@ -312,10 +316,14 @@ EOF
 cd /root/terraform/handoff-demo
 terraform init > /dev/null 2>&1
 
-# Import the existing networks (they were created by virsh earlier)
-terraform import libvirt_network.production legacy-network > /dev/null 2>&1 || true
-terraform import libvirt_network.application app-network > /dev/null 2>&1 || true
-terraform import libvirt_network.database db-network > /dev/null 2>&1 || true
+# Import the existing networks using their UUIDs (libvirt provider requires UUIDs)
+LEGACY_UUID=$(virsh net-uuid legacy-network)
+APP_UUID=$(virsh net-uuid app-network)
+DB_UUID=$(virsh net-uuid db-network)
+
+terraform import libvirt_network.production "$LEGACY_UUID" > /dev/null 2>&1 || true
+terraform import libvirt_network.application "$APP_UUID" > /dev/null 2>&1 || true
+terraform import libvirt_network.database "$DB_UUID" > /dev/null 2>&1 || true
 
 # ============================================================================
 # Setup 4: CLI Import Demo - Create network for CLI import practice
