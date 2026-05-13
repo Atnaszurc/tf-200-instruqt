@@ -542,80 +542,8 @@ else
   echo ""
 fi
 echo ""
-
-# Step 4: Clean up removed block
-cat > main.tf << 'EOF'
-terraform {
-  required_version = ">= 1.7.0"
-  required_providers {
-    libvirt = {
-      source  = "dmacvicar/libvirt"
-      version = "~> 0.9"
-    }
-  }
-}
-
-provider "libvirt" {
-  uri = "qemu:///system"
-}
-
-# Continue managing production and application networks
-resource "libvirt_network" "production" {
-  name      = "legacy-network"
-  autostart = true
-  
-  ips = [
-    {
-      address = "10.100.0.1"
-      prefix  = 24
-      dhcp = {
-        ranges = [{
-          start = "10.100.0.2"
-          end   = "10.100.0.254"
-        }]
-      }
-    }
-  ]
-  
-  forward = {
-    mode = "nat"
-  }
-  
-  dns = {
-    enabled = true
-  }
-}
-
-resource "libvirt_network" "application" {
-  name      = "app-network"
-  autostart = true
-  
-  ips = [
-    {
-      address = "10.101.0.1"
-      prefix  = 24
-      dhcp = {
-        ranges = [{
-          start = "10.101.0.2"
-          end   = "10.101.0.254"
-        }]
-      }
-    }
-  ]
-  
-  forward = {
-    mode = "nat"
-  }
-  
-  dns = {
-    enabled = true
-  }
-}
-EOF
-
-echo "✅ Cleaned up removed block (no apply needed - resources already in state)"
-echo "DEBUG: Final state after cleanup:"
-terraform state list 2>/dev/null || echo "  (No state file or empty state)"
+echo "Note: The removed block can stay in configuration - it's already done its job"
+echo "      In practice, you might remove it for cleanliness, but it won't cause issues"
 echo ""
 
 # ============================================================================
