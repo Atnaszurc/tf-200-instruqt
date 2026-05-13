@@ -10,6 +10,14 @@ echo ""
 
 cd /root/terraform
 
+# Clean up any leftover files from previous challenges
+echo "Cleaning workspace..."
+rm -f *.tf 2>/dev/null || true
+rm -f *.md 2>/dev/null || true
+rm -rf .terraform 2>/dev/null || true
+rm -f .terraform.lock.hcl 2>/dev/null || true
+rm -f terraform.tfstate* 2>/dev/null || true
+
 # Create module directory structure
 mkdir -p modules/{frontend,application,database,app-stack}
 
