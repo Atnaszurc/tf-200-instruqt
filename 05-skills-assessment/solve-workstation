@@ -40,6 +40,21 @@ echo "📁 Solution structure:"
 tree -L 2 -I '.terraform*' || find . -maxdepth 2 -type d | grep -v '.terraform' | sort
 echo ""
 
+# Get UUIDs for legacy resources and update import blocks
+echo "🔍 Discovering legacy resource UUIDs..."
+NETWORK_UUID=$(virsh net-uuid legacy-app-network)
+DOMAIN_UUID=$(virsh domuuid legacy-app-server)
+
+echo "  Network UUID: $NETWORK_UUID"
+echo "  Domain UUID: $DOMAIN_UUID"
+echo ""
+
+echo "📝 Updating import blocks with UUIDs..."
+sed -i "s|id = \"legacy-app-network\"|id = \"$NETWORK_UUID\"|" main.tf
+sed -i "s|id = \"legacy-app-server\"|id = \"$DOMAIN_UUID\"|" main.tf
+echo "✅ Import blocks updated"
+echo ""
+
 # Initialize Terraform
 echo "==================================================================="
 echo "Initializing Terraform..."
