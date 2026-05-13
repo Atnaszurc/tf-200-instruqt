@@ -148,17 +148,24 @@ echo "==================================================================="
 terraform init
 echo ""
 
+# Get UUIDs for legacy resources
+echo "==================================================================="
+echo "Getting legacy resource UUIDs..."
+echo "==================================================================="
+echo "Getting domain UUID from virsh..."
+DOMAIN_UUID=$(virsh domuuid legacy-app-server)
+echo "  Domain UUID: $DOMAIN_UUID"
+
+echo "Getting network UUID from virsh..."
+NETWORK_UUID=$(virsh net-uuid legacy-app-network)
+echo "  Network UUID: $NETWORK_UUID"
+echo ""
+
 # Import legacy domain using CLI (import blocks don't work with libvirt UUIDs)
 # Note: We don't import the legacy network to avoid libvirt provider bug with updating imported networks
 echo "==================================================================="
 echo "Importing legacy domain..."
 echo "==================================================================="
-echo "Getting domain UUID from virsh..."
-DOMAIN_UUID=$(virsh domuuid legacy-app-server)
-
-echo "  Domain UUID: $DOMAIN_UUID"
-echo ""
-
 echo "Importing legacy-app-server..."
 terraform import libvirt_domain.legacy "$DOMAIN_UUID"
 echo ""
@@ -180,11 +187,11 @@ echo "==================================================================="
 terraform plan
 echo ""
 
-# Apply configuration
+# Apply configuration with legacy network UUID
 echo "==================================================================="
 echo "Deploying dev environment..."
 echo "==================================================================="
-terraform apply -auto-approve
+terraform apply -auto-approve -var="legacy_network_uuid=$NETWORK_UUID"
 echo ""
 
 # Display outputs
