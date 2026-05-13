@@ -40,19 +40,11 @@ echo "📁 Solution structure:"
 tree -L 2 -I '.terraform*' || find . -maxdepth 2 -type d | grep -v '.terraform' | sort
 echo ""
 
-# Get UUIDs for legacy resources and update import blocks
-echo "🔍 Discovering legacy resource UUIDs..."
-NETWORK_UUID=$(virsh net-uuid legacy-app-network)
-DOMAIN_UUID=$(virsh domuuid legacy-app-server)
-
-echo "  Network UUID: $NETWORK_UUID"
-echo "  Domain UUID: $DOMAIN_UUID"
-echo ""
-
-echo "📝 Updating import blocks with UUIDs..."
-sed -i "s|id = \"legacy-app-network\"|id = \"$NETWORK_UUID\"|" main.tf
-sed -i "s|id = \"legacy-app-server\"|id = \"$DOMAIN_UUID\"|" main.tf
-echo "✅ Import blocks updated"
+# Remove import blocks from main.tf (they don't work with libvirt's UUID requirement)
+# We'll use CLI imports instead after terraform init
+echo "📝 Removing import blocks from main.tf (will use CLI imports)..."
+sed -i '/^import {/,/^}/d' main.tf
+echo "✅ Import blocks removed"
 echo ""
 
 # Initialize Terraform
@@ -60,6 +52,29 @@ echo "==================================================================="
 echo "Initializing Terraform..."
 echo "==================================================================="
 terraform init
+echo ""
+
+# Import legacy resources using CLI (import blocks don't work with libvirt UUIDs)
+echo "==================================================================="
+echo "Importing legacy resources..."
+echo "==================================================================="
+echo "Getting UUIDs from virsh..."
+NETWORK_UUID=$(virsh net-uuid legacy-app-network)
+DOMAIN_UUID=$(virsh domuuid legacy-app-server)
+
+echo "  Network UUID: $NETWORK_UUID"
+echo "  Domain UUID: $DOMAIN_UUID"
+echo ""
+
+echo "Importing legacy-app-network..."
+terraform import libvirt_network.legacy "$NETWORK_UUID"
+echo ""
+
+echo "Importing legacy-app-server..."
+terraform import libvirt_domain.legacy "$DOMAIN_UUID"
+echo ""
+
+echo "✅ Legacy resources imported successfully"
 echo ""
 
 # Validate configuration
