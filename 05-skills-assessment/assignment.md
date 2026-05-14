@@ -133,15 +133,15 @@ Create YAML configuration files for each environment:
 environment: dev
 frontend:
   server_count: 2
-  network_cidr: "10.10.0.0/24"
+  network_cidr: "192.168.10.0/24"
   monitoring_enabled: false
 application:
   server_count: 2
-  network_cidr: "10.11.0.0/24"
+  network_cidr: "192.168.11.0/24"
   caching_enabled: false
 database:
   server_count: 1
-  network_cidr: "10.12.0.0/24"
+  network_cidr: "192.168.12.0/24"
   backup_enabled: false
   replication_enabled: false
 ```
@@ -151,15 +151,15 @@ database:
 environment: staging
 frontend:
   server_count: 2
-  network_cidr: "10.20.0.0/24"
+  network_cidr: "192.168.20.0/24"
   monitoring_enabled: true
 application:
   server_count: 3
-  network_cidr: "10.21.0.0/24"
+  network_cidr: "192.168.21.0/24"
   caching_enabled: true
 database:
   server_count: 1
-  network_cidr: "10.22.0.0/24"
+  network_cidr: "192.168.22.0/24"
   backup_enabled: true
   replication_enabled: false
 ```
@@ -169,15 +169,15 @@ database:
 environment: prod
 frontend:
   server_count: 3
-  network_cidr: "10.30.0.0/24"
+  network_cidr: "192.168.30.0/24"
   monitoring_enabled: true
 application:
   server_count: 4
-  network_cidr: "10.31.0.0/24"
+  network_cidr: "192.168.31.0/24"
   caching_enabled: true
 database:
   server_count: 2
-  network_cidr: "10.32.0.0/24"
+  network_cidr: "192.168.32.0/24"
   backup_enabled: true
   replication_enabled: true
 ```
@@ -186,10 +186,12 @@ database:
 
 You'll find existing "legacy" infrastructure that needs to be imported:
 
-1. **Legacy Network**: `legacy-app-network` (10.100.0.0/24)
+1. **Legacy Network**: `legacy-app-network` (192.168.100.0/24)
 2. **Legacy VM**: `legacy-app-server`
 
 **Task**: Import these resources into your Terraform configuration using import blocks, then refactor them to use your modules.
+
+**Note**: The legacy network UUID must be fetched dynamically and passed as a variable to avoid libvirt provider inconsistencies.
 
 ## 🚀 Advanced Pattern Requirements
 
