@@ -70,6 +70,10 @@ resource "libvirt_domain" "database_primary" {
   devices = {
     disks = [{
       volume_id = libvirt_volume.database_primary.id
+      target = {
+        dev = "vda"
+        bus = "virtio"
+      }
     }]
 
     network_interfaces = [{
@@ -108,9 +112,17 @@ resource "libvirt_domain" "database_replica" {
   memory = 2048
   vcpu   = 2
 
+  os = {
+    type = "hvm"
+  }
+
   devices = {
     disks = [{
       volume_id = libvirt_volume.database_replica[count.index].id
+      target = {
+        dev = "vda"
+        bus = "virtio"
+      }
     }]
 
     network_interfaces = [{

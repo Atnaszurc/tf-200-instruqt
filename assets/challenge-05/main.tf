@@ -45,6 +45,10 @@ resource "libvirt_domain" "legacy" {
 
     disks = [{
       file = "/var/lib/libvirt/images/legacy/legacy-app-server.qcow2"
+      target = {
+        dev = "vda"
+        bus = "virtio"
+      }
     }]
 
     consoles = [{

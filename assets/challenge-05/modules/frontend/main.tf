@@ -63,6 +63,10 @@ resource "libvirt_domain" "frontend" {
   devices = {
     disks = [{
       volume_id = libvirt_volume.frontend[count.index].id
+      target = {
+        dev = "vda"
+        bus = "virtio"
+      }
     }]
 
     network_interfaces = [{

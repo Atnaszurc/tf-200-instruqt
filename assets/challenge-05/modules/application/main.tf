@@ -69,6 +69,10 @@ resource "libvirt_domain" "application_stable" {
   devices = {
     disks = [{
       volume_id = libvirt_volume.application_stable[count.index].id
+      target = {
+        dev = "vda"
+        bus = "virtio"
+      }
     }]
 
     network_interfaces = [{
@@ -107,9 +111,17 @@ resource "libvirt_domain" "application_canary" {
   memory = 1024
   vcpu   = 2
 
+  os = {
+    type = "hvm"
+  }
+
   devices = {
     disks = [{
       volume_id = libvirt_volume.application_canary[count.index].id
+      target = {
+        dev = "vda"
+        bus = "virtio"
+      }
     }]
 
     network_interfaces = [{
