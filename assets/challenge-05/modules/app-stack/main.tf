@@ -2,36 +2,39 @@
 
 module "frontend" {
   source = "../frontend"
-  
+
   environment        = var.config.environment
   server_count       = var.config.frontend.server_count
   network_cidr       = var.config.frontend.network_cidr
   monitoring_enabled = var.config.frontend.monitoring_enabled
+  base_volume_id     = var.base_volume_id
 }
 
 module "application" {
   source = "../application"
-  
-  environment          = var.config.environment
-  server_count         = var.config.application.server_count
-  network_cidr         = var.config.application.network_cidr
-  frontend_network_id  = module.frontend.network_id
-  caching_enabled      = var.config.application.caching_enabled
-  canary_enabled       = var.enable_canary
-  canary_percentage    = var.canary_percentage
-  
+
+  environment         = var.config.environment
+  server_count        = var.config.application.server_count
+  network_cidr        = var.config.application.network_cidr
+  frontend_network_id = module.frontend.network_id
+  caching_enabled     = var.config.application.caching_enabled
+  canary_enabled      = var.enable_canary
+  canary_percentage   = var.canary_percentage
+  base_volume_id      = var.base_volume_id
+
   depends_on = [module.frontend]
 }
 
 module "database" {
   source = "../database"
-  
-  environment          = var.config.environment
-  server_count         = var.config.database.server_count
-  network_cidr         = var.config.database.network_cidr
-  backup_enabled       = var.config.database.backup_enabled
-  replication_enabled  = var.config.database.replication_enabled
-  
+
+  environment         = var.config.environment
+  server_count        = var.config.database.server_count
+  network_cidr        = var.config.database.network_cidr
+  backup_enabled      = var.config.database.backup_enabled
+  replication_enabled = var.config.database.replication_enabled
+  base_volume_id      = var.base_volume_id
+
   depends_on = [module.application]
 }
 

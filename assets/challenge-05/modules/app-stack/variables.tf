@@ -13,10 +13,10 @@ variable "config" {
       caching_enabled = bool
     })
     database = object({
-      server_count         = number
-      network_cidr         = string
-      backup_enabled       = bool
-      replication_enabled  = bool
+      server_count        = number
+      network_cidr        = string
+      backup_enabled      = bool
+      replication_enabled = bool
     })
   })
 }
@@ -33,3 +33,7 @@ variable "canary_percentage" {
   default     = 10
 }
 
+variable "base_volume_id" {
+  description = "ID of the base volume for VM disks"
+  type        = string
+}

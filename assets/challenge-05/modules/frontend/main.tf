@@ -46,6 +46,13 @@ resource "libvirt_volume" "frontend" {
       type = "qcow2"
     }
   }
+
+  backing_store = {
+    path = var.base_volume_id
+    format = {
+      type = "qcow2"
+    }
+  }
 }
 
 resource "libvirt_domain" "frontend" {

@@ -21,6 +21,24 @@ locals {
   config = yamldecode(file("${path.module}/config/${var.environment}.yaml"))
 }
 
+# Base image for all VMs
+resource "libvirt_volume" "base" {
+  name = "ubuntu-22.04-base.qcow2"
+  pool = "default"
+
+  create = {
+    content = {
+      url = "https://cloud-images.ubuntu.com/releases/22.04/release/ubuntu-22.04-server-cloudimg-amd64.img"
+    }
+  }
+
+  target = {
+    format = {
+      type = "qcow2"
+    }
+  }
+}
+
 # Import legacy resources
 import {
   to = libvirt_domain.legacy
@@ -68,6 +86,9 @@ module "app_stack" {
   source = "./modules/app-stack"
 
   config = local.config
+
+  # Pass base image to modules
+  base_volume_id = libvirt_volume.base.id
 
   # Enable canary for staging and prod
   enable_canary     = contains(["staging", "prod"], var.environment)

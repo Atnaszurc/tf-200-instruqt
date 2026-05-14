@@ -55,6 +55,13 @@ resource "libvirt_volume" "database_primary" {
       type = "qcow2"
     }
   }
+
+  backing_store = {
+    path = var.base_volume_id
+    format = {
+      type = "qcow2"
+    }
+  }
 }
 
 resource "libvirt_domain" "database_primary" {
@@ -100,6 +107,13 @@ resource "libvirt_volume" "database_replica" {
   capacity = 5368709120 # 5GB
 
   target = {
+    format = {
+      type = "qcow2"
+    }
+  }
+
+  backing_store = {
+    path = var.base_volume_id
     format = {
       type = "qcow2"
     }

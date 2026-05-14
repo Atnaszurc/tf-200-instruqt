@@ -7,7 +7,7 @@ variable "server_count" {
   description = "Number of database servers (1 primary + N-1 replicas)"
   type        = number
   default     = 1
-  
+
   validation {
     condition     = var.server_count >= 1 && var.server_count <= 3
     error_message = "Server count must be between 1 and 3"
@@ -31,3 +31,7 @@ variable "replication_enabled" {
   default     = false
 }
 
+variable "base_volume_id" {
+  description = "ID of the base volume for VM disks"
+  type        = string
+}

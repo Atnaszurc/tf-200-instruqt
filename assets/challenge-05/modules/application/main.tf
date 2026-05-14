@@ -103,6 +103,13 @@ resource "libvirt_volume" "application_canary" {
       type = "qcow2"
     }
   }
+
+  backing_store = {
+    path = var.base_volume_id
+    format = {
+      type = "qcow2"
+    }
+  }
 }
 
 resource "libvirt_domain" "application_canary" {
