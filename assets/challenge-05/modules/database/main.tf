@@ -76,8 +76,11 @@ resource "libvirt_domain" "database_primary" {
 
   devices = {
     disks = [{
-      volume = {
-        volume = libvirt_volume.database_primary.id
+      source = {
+        volume = {
+          pool   = "default"
+          volume = libvirt_volume.database_primary.id
+        }
       }
       target = {
         dev = "vda"
@@ -134,8 +137,11 @@ resource "libvirt_domain" "database_replica" {
 
   devices = {
     disks = [{
-      volume = {
-        volume = libvirt_volume.database_replica[count.index].id
+      source = {
+        volume = {
+          pool   = "default"
+          volume = libvirt_volume.database_replica[count.index].id
+        }
       }
       target = {
         dev = "vda"

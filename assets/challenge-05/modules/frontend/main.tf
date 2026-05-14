@@ -69,8 +69,11 @@ resource "libvirt_domain" "frontend" {
 
   devices = {
     disks = [{
-      volume = {
-        volume = libvirt_volume.frontend[count.index].id
+      source = {
+        volume = {
+          pool   = "default"
+          volume = libvirt_volume.frontend[count.index].id
+        }
       }
       target = {
         dev = "vda"

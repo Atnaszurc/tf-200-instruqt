@@ -68,8 +68,11 @@ resource "libvirt_domain" "application_stable" {
 
   devices = {
     disks = [{
-      volume = {
-        volume = libvirt_volume.application_stable[count.index].id
+      source = {
+        volume = {
+          pool   = "default"
+          volume = libvirt_volume.application_stable[count.index].id
+        }
       }
       target = {
         dev = "vda"
@@ -126,8 +129,11 @@ resource "libvirt_domain" "application_canary" {
 
   devices = {
     disks = [{
-      volume = {
-        volume = libvirt_volume.application_canary[count.index].id
+      source = {
+        volume = {
+          pool   = "default"
+          volume = libvirt_volume.application_canary[count.index].id
+        }
       }
       target = {
         dev = "vda"
