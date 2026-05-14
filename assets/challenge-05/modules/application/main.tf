@@ -68,7 +68,9 @@ resource "libvirt_domain" "application_stable" {
 
   devices = {
     disks = [{
-      volume_id = libvirt_volume.application_stable[count.index].id
+      volume = {
+        volume = libvirt_volume.application_stable[count.index].id
+      }
       target = {
         dev = "vda"
         bus = "virtio"
@@ -117,7 +119,9 @@ resource "libvirt_domain" "application_canary" {
 
   devices = {
     disks = [{
-      volume_id = libvirt_volume.application_canary[count.index].id
+      volume = {
+        volume = libvirt_volume.application_canary[count.index].id
+      }
       target = {
         dev = "vda"
         bus = "virtio"

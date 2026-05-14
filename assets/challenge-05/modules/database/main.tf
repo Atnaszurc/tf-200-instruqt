@@ -69,7 +69,9 @@ resource "libvirt_domain" "database_primary" {
 
   devices = {
     disks = [{
-      volume_id = libvirt_volume.database_primary.id
+      volume = {
+        volume = libvirt_volume.database_primary.id
+      }
       target = {
         dev = "vda"
         bus = "virtio"
@@ -118,7 +120,9 @@ resource "libvirt_domain" "database_replica" {
 
   devices = {
     disks = [{
-      volume_id = libvirt_volume.database_replica[count.index].id
+      volume = {
+        volume = libvirt_volume.database_replica[count.index].id
+      }
       target = {
         dev = "vda"
         bus = "virtio"
