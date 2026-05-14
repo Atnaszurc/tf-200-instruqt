@@ -45,7 +45,9 @@ resource "libvirt_domain" "legacy" {
 
     disks = [{
       source = {
-        file = "/var/lib/libvirt/images/legacy/legacy-app-server.qcow2"
+        file = {
+          file = "/var/lib/libvirt/images/legacy/legacy-app-server.qcow2"
+        }
       }
       target = {
         dev = "vda"
