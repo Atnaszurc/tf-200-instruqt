@@ -6,7 +6,53 @@ set -euo pipefail
 
 echo "Setting up Challenge 5: Skills Assessment..."
 
-# Clone the lab assets repository first
+# ============================================================================
+# Clean Up Previous Work
+# ============================================================================
+echo "Cleaning up previous work to ensure fresh start..."
+
+# Remove any existing Terraform state and files from /root/terraform
+if [ -d "/root/terraform" ]; then
+  cd /root/terraform
+  
+  # Destroy any existing infrastructure
+  if [ -f ".terraform/terraform.tfstate" ] || [ -f "terraform.tfstate" ]; then
+    echo "Destroying existing Terraform-managed infrastructure..."
+    terraform destroy -auto-approve 2>/dev/null || true
+  fi
+  
+  # Remove all Terraform files and directories
+  rm -rf .terraform* terraform.tfstate* *.tf *.tfvars modules/ config/ generated/ *.sh README.md
+  
+  echo "✅ Cleaned up /root/terraform directory"
+fi
+
+# Clean up any leftover libvirt resources from previous attempts
+echo "Cleaning up leftover libvirt resources..."
+
+# Remove any dev-*, staging-*, prod-* networks
+for net in $(virsh net-list --all | grep -E "(dev-|staging-|prod-)" | awk '{print $1}'); do
+  virsh net-destroy $net 2>/dev/null || true
+  virsh net-undefine $net 2>/dev/null || true
+  echo "  Removed network: $net"
+done
+
+# Remove any dev-*, staging-*, prod-* volumes
+for vol in $(virsh vol-list default 2>/dev/null | grep -E "(dev-|staging-|prod-)" | awk '{print $1}'); do
+  virsh vol-delete $vol --pool default 2>/dev/null || true
+  echo "  Removed volume: $vol"
+done
+
+# Remove any dev-*, staging-*, prod-* domains
+for dom in $(virsh list --all | grep -E "(dev-|staging-|prod-)" | awk '{print $2}'); do
+  virsh destroy $dom 2>/dev/null || true
+  virsh undefine $dom 2>/dev/null || true
+  echo "  Removed domain: $dom"
+done
+
+echo "✅ Cleaned up leftover resources"
+
+# Clone the lab assets repository
 echo "Cloning lab assets from GitHub..."
 cd /root
 rm -rf lab-assets
@@ -33,9 +79,9 @@ cat > /tmp/legacy-app-network.xml << 'EOF'
   <name>legacy-app-network</name>
   <forward mode='nat'/>
   <bridge name='virbr100' stp='on' delay='0'/>
-  <ip address='10.100.0.1' netmask='255.255.255.0'>
+  <ip address='192.168.100.1' netmask='255.255.255.0'>
     <dhcp>
-      <range start='10.100.0.2' end='10.100.0.254'/>
+      <range start='192.168.100.2' end='192.168.100.254'/>
     </dhcp>
   </ip>
 </network>
