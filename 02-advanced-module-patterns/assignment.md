@@ -50,6 +50,86 @@ This challenge covers enterprise-grade module patterns:
 
 ## Section 1: Nested Module Hierarchies 🏗️
 
+### The Problem: When Do I Need Nested Modules?
+
+**In Challenge 1**, you learned to create modules. But what if a module itself needs to use other modules?
+
+**Example Scenario:**
+You're building a complete application stack:
+- Network layer (simple module)
+- Storage layer (simple module)
+- Compute layer (simple module)
+- **Application stack** (combines all three)
+
+**Option 1: Flat Structure (What You Know)**
+```hcl
+# main.tf - everything at top level
+module "network" {
+  source = "./modules/network"
+}
+
+module "storage" {
+  source = "./modules/storage"
+}
+
+module "compute" {
+  source     = "./modules/compute"
+  network_id = module.network.id
+  storage_id = module.storage.id
+}
+
+# User has to wire everything together manually
+# User needs to understand all the connections
+# Lots of repetition for each environment
+```
+
+**Option 2: Nested Structure (What You're Learning)**
+```hcl
+# main.tf - simple!
+module "app_stack" {
+  source = "./modules/app-stack"
+  
+  environment = "dev"
+}
+
+# modules/app-stack/main.tf - handles complexity
+module "network" {
+  source = "../network"
+}
+
+module "storage" {
+  source = "../storage"
+}
+
+module "compute" {
+  source     = "../compute"
+  network_id = module.network.id
+  storage_id = module.storage.id
+}
+
+# Wiring happens inside the module
+# User doesn't need to know the details
+# Easy to deploy to multiple environments
+```
+
+**When to Use Nested Modules:**
+- ✅ When modules naturally group together (network + compute + storage)
+- ✅ When you want to hide complexity from users
+- ✅ When you have common patterns you deploy repeatedly
+- ✅ When you need to enforce specific module combinations
+- ❌ Don't nest just for the sake of nesting
+
+**Rule of Thumb:**
+If you find yourself always using 3 modules together in the same way, create a parent module that combines them.
+
+**Real-World Example:**
+- **AWS**: VPC + Subnets + Route Tables → "Network Stack" module
+- **Azure**: Resource Group + VNet + NSG → "Foundation" module
+- **Libvirt**: Network + Storage Pool + Base Image → "Infrastructure" module
+
+---
+
+
 ### Understanding Nested Modules
 
 **Nested modules** allow you to compose complex infrastructure from simple, reusable layers. Each layer has a single responsibility and can be tested independently.
@@ -536,6 +616,100 @@ terraform plan
 ---
 
 ## Section 2: Conditional Resources 🔀
+
+### Recap from TF-100: count and for_each
+
+**You learned `count` and `for_each` to create multiple resources:**
+```hcl
+resource "libvirt_domain" "vm" {
+  count = 3  # Create 3 VMs
+  name  = "vm-${count.index}"
+}
+```
+
+### New Concept: Conditional Creation
+
+What if you want to create a resource **only sometimes**?
+
+**The Trick:**
+Use `count` with 0 or 1:
+```hcl
+resource "libvirt_domain" "monitoring" {
+  count = var.enable_monitoring ? 1 : 0  # Create if enabled, skip if not
+  
+  name = "monitoring-server"
+}
+```
+
+**How It Works:**
+- `var.enable_monitoring = true` → `count = 1` → Resource created
+- `var.enable_monitoring = false` → `count = 0` → Resource skipped
+
+**Real-World Example:**
+```hcl
+# Monitoring only in production
+resource "local_file" "monitoring_config" {
+  count = var.environment == "prod" ? 1 : 0
+  
+  filename = "monitoring.conf"
+  content  = "..."
+}
+
+# Backup only for databases
+resource "local_file" "backup_script" {
+  count = var.resource_type == "database" ? 1 : 0
+  
+  filename = "backup.sh"
+  content  = "..."
+}
+```
+
+**Why This Matters:**
+- ✅ Same module works for different environments
+- ✅ No need for separate modules for prod vs dev
+- ✅ Feature flags built into infrastructure
+- ✅ Cost optimization (skip expensive resources in dev)
+
+**Common Patterns:**
+```hcl
+# Pattern 1: Environment-based
+count = var.environment == "prod" ? 1 : 0
+
+# Pattern 2: Feature flag
+count = var.enable_feature ? 1 : 0
+
+# Pattern 3: Size-based
+count = var.size == "large" ? 3 : 1
+
+# Pattern 4: Multiple conditions
+count = var.environment == "prod" && var.enable_monitoring ? 1 : 0
+```
+
+<details>
+<summary>🔍 count vs for_each for Conditionals</summary>
+
+**Use count for conditionals:**
+```hcl
+count = var.enabled ? 1 : 0  # ✅ Simple on/off
+```
+
+**Use for_each for conditionals:**
+```hcl
+for_each = var.enabled ? toset(["item"]) : toset([])  # ❌ Overly complex
+```
+
+**Why count is better:**
+- Simpler syntax
+- Clearer intent
+- Easier to read
+
+**When to use for_each:**
+When you're creating multiple different resources, not just enabling/disabling one.
+
+</details>
+
+---
+
 
 ### Understanding Conditional Resources
 
