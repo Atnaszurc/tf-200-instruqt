@@ -88,7 +88,7 @@ module "compute" {
 # main.tf - simple!
 module "app_stack" {
   source = "./modules/app-stack"
-  
+
   environment = "dev"
 }
 
@@ -200,20 +200,37 @@ terraform {
   required_providers {
     libvirt = {
       source  = "dmacvicar/libvirt"
-      version = "~> 0.8"
+      version = "~> 0.9"
     }
   }
 }
 
 resource "libvirt_network" "this" {
   name      = var.network_name
-  mode      = var.network_mode
-  domain    = var.domain
-  addresses = var.addresses
   autostart = true
 
-  dhcp {
-    enabled = true
+  # IP configuration - using list of objects with = syntax
+  ips = [
+    for addr in var.addresses : {
+      address = split("/", addr)[0]
+      prefix  = tonumber(split("/", addr)[1])
+      dhcp = {
+        ranges = [{
+          start = cidrhost(addr, 2)
+          end   = cidrhost(addr, -2)
+        }]
+      }
+    }
+  ]
+
+  # Network forwarding mode - nested attribute
+  forward = {
+    mode = var.network_mode
+  }
+
+  # DNS domain configuration - nested attribute
+  domain = {
+    name = var.domain
   }
 }
 ```
@@ -283,7 +300,7 @@ terraform {
   required_providers {
     libvirt = {
       source  = "dmacvicar/libvirt"
-      version = "~> 0.8"
+      version = "~> 0.9"
     }
   }
 }
@@ -291,16 +308,24 @@ terraform {
 resource "libvirt_pool" "this" {
   name = var.pool_name
   type = var.pool_type
-  path = var.pool_path
+
+  target = {
+    path = var.pool_path
+  }
 }
 
 resource "libvirt_volume" "volumes" {
   for_each = var.volumes
 
-  name   = "${each.key}.${each.value.format}"
-  pool   = libvirt_pool.this.name
-  format = each.value.format
-  size   = each.value.size_gb * 1073741824  # Convert GB to bytes
+  name     = "${each.key}.${each.value.format}"
+  pool     = libvirt_pool.this.name
+  capacity = each.value.size_gb * 1073741824 # Convert GB to bytes
+
+  target = {
+    format = {
+      type = each.value.format
+    }
+  }
 }
 ```
 
@@ -363,7 +388,7 @@ terraform {
   required_providers {
     libvirt = {
       source  = "dmacvicar/libvirt"
-      version = "~> 0.8"
+      version = "~> 0.9"
     }
   }
 }
@@ -372,22 +397,31 @@ resource "libvirt_domain" "vms" {
   for_each = var.vms
 
   name      = each.key
+  type      = "kvm"
   memory    = each.value.memory_mb
   vcpu      = each.value.vcpu_count
   autostart = var.autostart
 
-  disk {
-    volume_id = each.value.volume_id
+  os = {
+    type    = "hvm"
+    arch    = "x86_64"
+    machine = "pc"
   }
 
-  network_interface {
-    network_id = var.network_id
-  }
+  devices = {
+    disks = [{
+      volume_id = each.value.volume_id
+    }]
 
-  console {
-    type        = "pty"
-    target_type = "serial"
-    target_port = "0"
+    interfaces = [{
+      network_id = var.network_id
+    }]
+
+    consoles = [{
+      type        = "pty"
+      target_type = "serial"
+      target_port = "0"
+    }]
   }
 }
 ```
@@ -636,7 +670,7 @@ Use `count` with 0 or 1:
 ```hcl
 resource "libvirt_domain" "monitoring" {
   count = var.enable_monitoring ? 1 : 0  # Create if enabled, skip if not
-  
+
   name = "monitoring-server"
 }
 ```
@@ -650,7 +684,7 @@ resource "libvirt_domain" "monitoring" {
 # Monitoring only in production
 resource "local_file" "monitoring_config" {
   count = var.environment == "prod" ? 1 : 0
-  
+
   filename = "monitoring.conf"
   content  = "..."
 }
@@ -658,7 +692,7 @@ resource "local_file" "monitoring_config" {
 # Backup only for databases
 resource "local_file" "backup_script" {
   count = var.resource_type == "database" ? 1 : 0
-  
+
   filename = "backup.sh"
   content  = "..."
 }

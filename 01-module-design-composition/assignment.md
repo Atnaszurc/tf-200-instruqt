@@ -110,7 +110,7 @@ resource "libvirt_domain" "web" {
 # TF-200 style (using child modules)
 module "web_tier" {
   source = "./modules/web"  # Reusable!
-  
+
   environment = "dev"
 }
 ```
@@ -275,7 +275,7 @@ resource "local_file" "db_monitoring" {
 # User only sees what matters
 module "database" {
   source = "./modules/database"
-  
+
   name = "mydb"
   size = "small"  # Module figures out the rest!
 }
@@ -822,24 +822,37 @@ terraform {
   required_providers {
     libvirt = {
       source  = "dmacvicar/libvirt"
-      version = "~> 0.8"
+      version = "~> 0.9"
     }
   }
 }
 
 resource "libvirt_network" "network" {
   name      = var.name
-  mode      = var.mode
-  domain    = var.domain
-  addresses = var.addresses
   autostart = var.autostart
 
-  # DHCP configuration
-  dynamic "dhcp" {
-    for_each = var.dhcp_enabled ? [1] : []
-    content {
-      enabled = true
+  # IP configuration from variable
+  ips = [
+    for addr in var.addresses : {
+      address = split("/", addr)[0]
+      prefix  = tonumber(split("/", addr)[1])
+      dhcp = var.dhcp_enabled ? {
+        ranges = [{
+          start = cidrhost(addr, 2)
+          end   = cidrhost(addr, -2)
+        }]
+      } : null
     }
+  ]
+
+  # Network forwarding mode
+  forward = {
+    mode = var.mode
+  }
+
+  # DNS domain configuration
+  domain = {
+    name = var.domain
   }
 }
 EOF
@@ -946,38 +959,52 @@ terraform {
   required_providers {
     libvirt = {
       source  = "dmacvicar/libvirt"
-      version = "~> 0.8"
+      version = "~> 0.9"
     }
   }
 }
 
 # Create a simple disk
 resource "libvirt_volume" "vm_disk" {
-  name   = "${var.name}-disk.qcow2"
-  pool   = "default"
-  format = "qcow2"
-  size   = 1073741824  # 1GB
+  name     = "${var.name}-disk.qcow2"
+  pool     = "default"
+  capacity = 1073741824 # 1GB
+
+  target = {
+    format = {
+      type = "qcow2"
+    }
+  }
 }
 
 # Create the VM
 resource "libvirt_domain" "vm" {
   name      = var.name
+  type      = "kvm"
   memory    = var.memory
   vcpu      = var.vcpu
   autostart = var.autostart
 
-  disk {
-    volume_id = libvirt_volume.vm_disk.id
+  os = {
+    type    = "hvm"
+    arch    = "x86_64"
+    machine = "pc"
   }
 
-  network_interface {
-    network_id = var.network_id
-  }
+  devices = {
+    disks = [{
+      volume_id = libvirt_volume.vm_disk.id
+    }]
 
-  console {
-    type        = "pty"
-    target_type = "serial"
-    target_port = "0"
+    interfaces = [{
+      network_id = var.network_id
+    }]
+
+    consoles = [{
+      type        = "pty"
+      target_type = "serial"
+      target_port = "0"
+    }]
   }
 }
 EOF

@@ -33,7 +33,7 @@ apt-get update -y
 # (HashiCorp APT repo may not support newer Ubuntu versions immediately)
 if ! apt-get install -y terraform; then
     echo "⚠ APT installation failed, using direct download fallback..."
-    TERRAFORM_VERSION="1.15.0"
+    TERRAFORM_VERSION="1.15.3"
     wget -q "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip"
     unzip -q "terraform_${TERRAFORM_VERSION}_linux_amd64.zip"
     mv terraform /usr/local/bin/
@@ -59,6 +59,22 @@ apt-get install -y \
 # Enable and start libvirt
 systemctl enable libvirtd
 systemctl start libvirtd
+
+# Disable AppArmor for libvirt (ephemeral lab environment)
+echo "Disabling AppArmor for libvirt..."
+if command -v aa-status &> /dev/null; then
+    # Disable libvirt profiles
+    for profile in /etc/apparmor.d/libvirt/libvirt-* /etc/apparmor.d/usr.sbin.libvirtd; do
+        if [ -f "$profile" ]; then
+            ln -sf "$profile" /etc/apparmor.d/disable/ 2>/dev/null || true
+        fi
+    done
+    apparmor_parser -R /etc/apparmor.d/usr.sbin.libvirtd 2>/dev/null || true
+    systemctl reload apparmor 2>/dev/null || true
+    echo "✓ AppArmor disabled for libvirt"
+else
+    echo "✓ AppArmor not present"
+fi
 
 # Verify nested virtualization support
 if kvm-ok; then

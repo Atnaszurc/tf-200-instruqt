@@ -151,7 +151,7 @@ variable "server_count" {
   description = "Number of web servers to create"
   type        = number
   default     = 2
-  
+
   validation {
     condition     = var.server_count >= 1 && var.server_count <= 5
     error_message = "Server count must be between 1 and 5"
@@ -183,13 +183,13 @@ resource "libvirt_network" "frontend" {
 resource "libvirt_volume" "base" {
   name = "${var.environment}-frontend-base.qcow2"
   pool = "default"
-  
+
   create = {
     content = {
       url = "https://cloud-images.ubuntu.com/releases/22.04/release/ubuntu-22.04-server-cloudimg-amd64.img"
     }
   }
-  
+
   target = {
     format = {
       type = "qcow2"
@@ -200,18 +200,18 @@ resource "libvirt_volume" "base" {
 # Web server VMs
 resource "libvirt_volume" "server" {
   count = var.server_count
-  
+
   name     = "${var.environment}-web-${count.index + 1}.qcow2"
   pool     = "default"
   capacity = 10737418240  # 10GB
-  
+
   backing_store = {
     path = libvirt_volume.base.id
     format = {
       type = "qcow2"
     }
   }
-  
+
   target = {
     format = {
       type = "qcow2"
@@ -221,16 +221,16 @@ resource "libvirt_volume" "server" {
 
 resource "libvirt_domain" "server" {
   count = var.server_count
-  
+
   name   = "${var.environment}-web-${count.index + 1}"
   memory = 1024
   vcpu   = 1
   type   = "kvm"
-  
+
   os = {
     type = "hvm"
   }
-  
+
   devices = {
     disks = [{
       source = {
@@ -244,7 +244,7 @@ resource "libvirt_domain" "server" {
         bus = "virtio"
       }
     }]
-    
+
     interfaces = [{
       network = {
         network = libvirt_network.frontend.name
@@ -254,7 +254,7 @@ resource "libvirt_domain" "server" {
       }
       wait_for_lease = true
     }]
-    
+
     console = [{
       type = "pty"
       target = {
@@ -268,7 +268,7 @@ resource "libvirt_domain" "server" {
 # Conditional monitoring (only if enabled)
 resource "local_file" "monitoring" {
   count = var.monitoring_enabled ? 1 : 0
-  
+
   filename = "${path.module}/monitoring-config.json"
   content = jsonencode({
     environment = var.environment
@@ -342,7 +342,7 @@ Creates frontend tier infrastructure including network, web servers, and load ba
 ```hcl
 module "frontend" {
   source = "./modules/frontend"
-  
+
   environment        = "dev"
   server_count       = 2
   network_cidr       = "192.168.10.0/24"
@@ -396,7 +396,7 @@ The database module additionally:
 # modules/app-stack/main.tf
 module "frontend" {
   source = "../frontend"
-  
+
   environment        = var.environment
   server_count       = var.frontend_config.server_count
   network_cidr       = var.frontend_config.network_cidr
@@ -405,7 +405,7 @@ module "frontend" {
 
 module "application" {
   source = "../application"
-  
+
   environment         = var.environment
   server_count        = var.application_config.server_count
   network_cidr        = var.application_config.network_cidr
@@ -415,7 +415,7 @@ module "application" {
 
 module "database" {
   source = "../database"
-  
+
   environment          = var.environment
   server_count         = var.database_config.server_count
   network_cidr         = var.database_config.network_cidr
@@ -434,7 +434,7 @@ locals {
 
 module "app_stack" {
   source = "./modules/app-stack"
-  
+
   environment         = local.config.environment
   frontend_config     = local.config.frontend
   application_config  = local.config.application
@@ -578,7 +578,7 @@ Instead of keeping resources in root, move them into your modules:
 # Option 1: Use existing module
 module "legacy_integration" {
   source = "./modules/application"
-  
+
   environment  = "legacy"
   server_count = 1
   network_cidr = "192.168.100.0/24"
@@ -588,7 +588,7 @@ module "legacy_integration" {
 # Option 2: Create dedicated legacy module
 module "legacy" {
   source = "./modules/legacy"
-  
+
   network_uuid = var.legacy_network_uuid
   # ... other settings
 }
@@ -784,7 +784,7 @@ touch config/{dev,staging,prod}.yaml
 # main.tf (temporary test)
 module "frontend" {
   source = "./modules/frontend"
-  
+
   environment    = "dev"
   server_count   = 2
   network_cidr   = "192.168.10.0/24"

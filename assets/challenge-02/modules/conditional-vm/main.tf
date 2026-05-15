@@ -82,7 +82,7 @@ resource "libvirt_domain" "vms" {
 
   devices = {
     disks = [{
-      volume_id = libvirt_volume.vm_disks[each.key].id
+      volume_id = libvirt_volume.vm_disks[each.key].name
     }]
 
     interfaces = [{

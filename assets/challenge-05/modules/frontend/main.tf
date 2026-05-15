@@ -72,7 +72,7 @@ resource "libvirt_domain" "frontend" {
       source = {
         volume = {
           pool   = "default"
-          volume = libvirt_volume.frontend[count.index].id
+          volume = libvirt_volume.frontend[count.index].name
         }
       }
       target = {

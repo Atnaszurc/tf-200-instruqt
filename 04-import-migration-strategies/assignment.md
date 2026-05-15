@@ -252,8 +252,8 @@ terraform plan -generate-config-out=generated.tf
 # Takes 30 minutes, accurate
 ```
 
-**Time saved:** 3.5-5.5 hours  
-**Accuracy:** Much higher (no manual typing)  
+**Time saved:** 3.5-5.5 hours
+**Accuracy:** Much higher (no manual typing)
 **Reviewability:** Full PR review possible
 
 </details>

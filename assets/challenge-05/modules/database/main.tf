@@ -79,7 +79,7 @@ resource "libvirt_domain" "database_primary" {
       source = {
         volume = {
           pool   = "default"
-          volume = libvirt_volume.database_primary.id
+          volume = libvirt_volume.database_primary.name
         }
       }
       target = {

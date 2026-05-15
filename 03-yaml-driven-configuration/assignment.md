@@ -140,13 +140,25 @@ resource "libvirt_network" "networks" {
   for_each = local.networks
 
   name      = each.value.name
-  mode      = each.value.mode
-  addresses = [each.value.cidr]
-  domain    = each.value.domain
   autostart = each.value.autostart
 
-  dhcp {
-    enabled = true
+  ips = [{
+    address = split("/", each.value.cidr)[0]
+    prefix  = tonumber(split("/", each.value.cidr)[1])
+    dhcp = {
+      ranges = [{
+        start = cidrhost(each.value.cidr, 2)
+        end   = cidrhost(each.value.cidr, -2)
+      }]
+    }
+  }]
+
+  forward = {
+    mode = each.value.mode
+  }
+
+  domain = {
+    name = each.value.domain
   }
 }
 ```
@@ -317,14 +329,25 @@ resource "libvirt_network" "networks" {
   for_each = local.networks
 
   name      = "${local.env.name}-${each.key}-network"
-  mode      = each.value.mode
-  addresses = [each.value.cidr]
-  domain    = each.value.domain
   autostart = true
 
-  dhcp {
-    enabled = true
+  forward = {
+    mode = each.value.mode
   }
+
+  domain = {
+    name = each.value.domain
+  }
+
+  ips = [
+    {
+      address = cidrhost(each.value.cidr, 1)
+      prefix  = split("/", each.value.cidr)[1]
+      dhcp = {
+        enabled = true
+      }
+    }
+  ]
 }
 
 # Create storage pools
@@ -332,18 +355,24 @@ resource "libvirt_pool" "pools" {
   for_each = local.pools
 
   name = "${local.env.name}-${each.key}-pool"
-  type = each.value.type
-  path = each.value.path
+
+  target = {
+    path = each.value.path
+  }
 }
 
 # Create VM volumes
 resource "libvirt_volume" "vm_disks" {
   for_each = local.vms
 
-  name   = "${local.env.name}-${each.key}.qcow2"
-  pool   = libvirt_pool.pools[each.value.pool].name
-  format = "qcow2"
-  size   = each.value.disk_gb * 1073741824  # Convert GB to bytes
+  name = "${local.env.name}-${each.key}.qcow2"
+  pool = libvirt_pool.pools[each.value.pool].name
+
+  target = {
+    format = "qcow2"
+  }
+
+  capacity = each.value.disk_gb * 1073741824  # Convert GB to bytes
 }
 
 # Create VMs
@@ -355,18 +384,30 @@ resource "libvirt_domain" "vms" {
   vcpu      = each.value.vcpu
   autostart = each.value.autostart
 
-  disk {
-    volume_id = libvirt_volume.vm_disks[each.key].id
+  os = {
+    type = "hvm"
   }
 
-  network_interface {
-    network_id = libvirt_network.networks[each.value.network].id
-  }
+  devices = {
+    disks = [
+      {
+        volume_id = libvirt_volume.vm_disks[each.key].id
+      }
+    ]
 
-  console {
-    type        = "pty"
-    target_type = "serial"
-    target_port = "0"
+    interfaces = [
+      {
+        network_id = libvirt_network.networks[each.value.network].id
+      }
+    ]
+
+    consoles = [
+      {
+        type        = "pty"
+        target_type = "serial"
+        target_port = 0
+      }
+    ]
   }
 }
 
@@ -886,23 +927,38 @@ resource "libvirt_network" "env_networks" {
   for_each = local.networks
 
   name      = "${local.environment.name}-${each.key}-network"
-  mode      = "nat"
-  addresses = [each.value.cidr]
-  domain    = each.value.domain
   autostart = true
 
-  dhcp {
-    enabled = true
+  forward = {
+    mode = "nat"
   }
+
+  domain = {
+    name = each.value.domain
+  }
+
+  ips = [
+    {
+      address = cidrhost(each.value.cidr, 1)
+      prefix  = split("/", each.value.cidr)[1]
+      dhcp = {
+        enabled = true
+      }
+    }
+  ]
 }
 
 resource "libvirt_volume" "env_vm_disks" {
   for_each = local.vms
 
-  name   = "${local.environment.name}-${each.key}.qcow2"
-  pool   = "default"
-  format = "qcow2"
-  size   = each.value.disk_gb * 1073741824
+  name = "${local.environment.name}-${each.key}.qcow2"
+  pool = "default"
+
+  target = {
+    format = "qcow2"
+  }
+
+  capacity = each.value.disk_gb * 1073741824
 }
 
 resource "libvirt_domain" "env_vms" {
@@ -913,18 +969,30 @@ resource "libvirt_domain" "env_vms" {
   vcpu      = each.value.vcpu
   autostart = each.value.autostart
 
-  disk {
-    volume_id = libvirt_volume.env_vm_disks[each.key].id
+  os = {
+    type = "hvm"
   }
 
-  network_interface {
-    network_id = libvirt_network.env_networks[each.value.network].id
-  }
+  devices = {
+    disks = [
+      {
+        volume_id = libvirt_volume.env_vm_disks[each.key].id
+      }
+    ]
 
-  console {
-    type        = "pty"
-    target_type = "serial"
-    target_port = "0"
+    interfaces = [
+      {
+        network_id = libvirt_network.env_networks[each.value.network].id
+      }
+    ]
+
+    consoles = [
+      {
+        type        = "pty"
+        target_type = "serial"
+        target_port = 0
+      }
+    ]
   }
 }
 ```

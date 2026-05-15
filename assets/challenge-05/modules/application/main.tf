@@ -71,7 +71,7 @@ resource "libvirt_domain" "application_stable" {
       source = {
         volume = {
           pool   = "default"
-          volume = libvirt_volume.application_stable[count.index].id
+          volume = libvirt_volume.application_stable[count.index].name
         }
       }
       target = {

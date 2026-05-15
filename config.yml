@@ -5,5 +5,6 @@ virtualmachines:
     machine_type: n1-standard-8
     nested_virtualization: true
     shell: bash
+    working_dir: /root/terraform-lab
 
 # Made with Bob
