@@ -84,6 +84,43 @@ Each section builds on the previous one, so complete them in order.
 
 ## Section 1: Module Fundamentals
 
+### Quick Recap from TF-100
+
+**Remember when you created `main.tf`, `variables.tf`, and `outputs.tf` in one directory?**
+
+That was actually a module! Specifically, the **root module**.
+
+**The Revelation:**
+Every Terraform configuration is a module. What you're learning now is how to create **reusable** modules that can be called multiple times.
+
+**Think of it like:**
+- **TF-100**: You wrote a program that runs once
+- **TF-200**: You're learning to write functions that can be called many times
+
+**Example:**
+```hcl
+# TF-100 style (root module only)
+resource "libvirt_network" "web" {
+  name = "web-network"
+}
+resource "libvirt_domain" "web" {
+  name = "web-server"
+}
+
+# TF-200 style (using child modules)
+module "web_tier" {
+  source = "./modules/web"  # Reusable!
+  
+  environment = "dev"
+}
+```
+
+**Why This Matters:**
+Instead of copying/pasting code for each environment, you create it once and reuse it.
+
+---
+
+
 ### What Are Terraform Modules?
 
 A **module** is a container for multiple resources that are used together. Every Terraform configuration has at least one module, called the **root module**, which consists of the resources defined in the `.tf` files in the main working directory.
