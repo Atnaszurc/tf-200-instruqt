@@ -183,38 +183,143 @@ module "everything" {
 ```
 
 #### 2. Composability
-Modules should work together through outputs and inputs:
 
+**What is Composition?**
+Composition means "building complex things from simple parts" - like LEGO blocks.
+
+**In Terraform:**
+- Each module is a LEGO block
+- Modules connect through outputs and inputs
+- You build complex infrastructure by connecting simple modules
+
+**Real-World Analogy:**
+Think of building a house:
+- **Foundation module** → outputs: foundation_id
+- **Walls module** → inputs: foundation_id (needs foundation first)
+- **Roof module** → inputs: walls_id (needs walls first)
+
+**In Code:**
 ```hcl
+# Step 1: Create network (foundation)
 module "network" {
   source = "./modules/network"
 }
 
+# Step 2: Create VM (walls) - uses network
 module "vm" {
   source     = "./modules/vm"
-  network_id = module.network.network_id  # Composition!
+  network_id = module.network.network_id  # ← Composition!
 }
 ```
+
+**The Magic:**
+The VM module doesn't know HOW the network was created. It just needs a network_id. This is composition - modules work together without being tightly coupled.
+
+**Why This Matters:**
+- ✅ Swap network module without changing VM module
+- ✅ Test modules independently
+- ✅ Reuse modules in different combinations
+
+<details>
+<summary>🔍 Advanced: Composition vs Inheritance</summary>
+
+**Composition** (what Terraform uses):
+- Modules are independent
+- Connected through inputs/outputs
+- Flexible and testable
+
+**Inheritance** (what Terraform doesn't use):
+- Child inherits from parent
+- Tightly coupled
+- Hard to change
+
+Terraform chose composition because it's more flexible for infrastructure.
+
+</details>
 
 #### 3. Encapsulation
-Hide implementation details, expose only what's necessary:
 
+**What is Encapsulation?**
+Hiding complexity behind a simple interface.
+
+**The Problem Without Encapsulation:**
 ```hcl
-# Module hides complexity
+# User has to know ALL the details
+resource "libvirt_volume" "db_disk" {
+  name     = "db-disk"
+  pool     = "default"
+  capacity = 10737418240
+  # ... 10 more attributes ...
+}
+resource "libvirt_volume" "db_backup" {
+  name = "db-backup"
+  # ... more config ...
+}
+resource "libvirt_pool" "db_pool" {
+  # ... more config ...
+}
+resource "libvirt_domain" "db" {
+  # ... 30 lines of config ...
+}
+resource "local_file" "db_backup_script" {
+  # ... more config ...
+}
+resource "local_file" "db_monitoring" {
+  # ... more config ...
+}
+# ... 20 more resources ...
+```
+
+**With Encapsulation:**
+```hcl
+# User only sees what matters
 module "database" {
   source = "./modules/database"
-
-  # Simple inputs
-  name     = "mydb"
-  size     = "small"
-
-  # Module handles:
-  # - Storage configuration
-  # - Backup setup
-  # - Security groups
-  # - Monitoring
+  
+  name = "mydb"
+  size = "small"  # Module figures out the rest!
 }
 ```
+
+**Real-World Analogy:**
+- **Without encapsulation**: Like driving a car by manually controlling fuel injection, spark timing, transmission gears, brake pressure...
+- **With encapsulation**: Like driving a car with a steering wheel, gas pedal, and brake pedal
+
+**Benefits:**
+- ✅ Users don't need to understand internals
+- ✅ You can change implementation without breaking users
+- ✅ Reduces errors (fewer things to configure)
+- ✅ Makes code readable
+
+**Example from TF-100:**
+Remember creating VMs in Challenge 3? You had to specify:
+- Volume configuration
+- Network configuration
+- Cloud-init setup
+- Console configuration
+- Memory, CPU, etc.
+
+With a module, users just say "I want a web server" and the module handles the details.
+
+<details>
+<summary>🔍 What to Encapsulate vs Expose</summary>
+
+**Encapsulate (hide):**
+- Implementation details
+- Complex calculations
+- Resource dependencies
+- Default values
+
+**Expose (make configurable):**
+- Environment-specific values
+- Resource names
+- Sizes/capacities
+- Feature flags
+
+**Rule of Thumb:**
+If users need to change it per environment, expose it. If it's always the same, encapsulate it.
+
+</details>
 
 #### 4. Flexibility
 Use variables and optional attributes:
