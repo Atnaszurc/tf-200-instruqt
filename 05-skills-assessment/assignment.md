@@ -124,6 +124,325 @@ You're building infrastructure for **CloudApp**, a three-tier web application th
 - Configurable via YAML files
 - Supports multiple environments
 
+### Module Implementation Guidance 🛠️
+
+**How to Structure Each Module:**
+
+Every module should follow this pattern:
+
+```
+modules/frontend/
+├── main.tf          # Resources
+├── variables.tf     # Input variables
+├── outputs.tf       # Output values
+└── README.md        # Documentation
+```
+
+**Example: Frontend Module Structure**
+
+**`modules/frontend/variables.tf`:**
+```hcl
+variable "environment" {
+  description = "Environment name (dev, staging, prod)"
+  type        = string
+}
+
+variable "server_count" {
+  description = "Number of web servers to create"
+  type        = number
+  default     = 2
+  
+  validation {
+    condition     = var.server_count >= 1 && var.server_count <= 5
+    error_message = "Server count must be between 1 and 5"
+  }
+}
+
+variable "network_cidr" {
+  description = "CIDR block for frontend network"
+  type        = string
+}
+
+variable "monitoring_enabled" {
+  description = "Enable monitoring resources"
+  type        = bool
+  default     = false
+}
+```
+
+**`modules/frontend/main.tf`:**
+```hcl
+# Network for frontend tier
+resource "libvirt_network" "frontend" {
+  name      = "${var.environment}-frontend-network"
+  domain    = "frontend.local"
+  autostart = true
+}
+
+# Base image for web servers
+resource "libvirt_volume" "base" {
+  name = "${var.environment}-frontend-base.qcow2"
+  pool = "default"
+  
+  create = {
+    content = {
+      url = "https://cloud-images.ubuntu.com/releases/22.04/release/ubuntu-22.04-server-cloudimg-amd64.img"
+    }
+  }
+  
+  target = {
+    format = {
+      type = "qcow2"
+    }
+  }
+}
+
+# Web server VMs
+resource "libvirt_volume" "server" {
+  count = var.server_count
+  
+  name     = "${var.environment}-web-${count.index + 1}.qcow2"
+  pool     = "default"
+  capacity = 10737418240  # 10GB
+  
+  backing_store = {
+    path = libvirt_volume.base.id
+    format = {
+      type = "qcow2"
+    }
+  }
+  
+  target = {
+    format = {
+      type = "qcow2"
+    }
+  }
+}
+
+resource "libvirt_domain" "server" {
+  count = var.server_count
+  
+  name   = "${var.environment}-web-${count.index + 1}"
+  memory = 1024
+  vcpu   = 1
+  type   = "kvm"
+  
+  os = {
+    type = "hvm"
+  }
+  
+  devices = {
+    disks = [{
+      source = {
+        volume = {
+          pool   = "default"
+          volume = libvirt_volume.server[count.index].id
+        }
+      }
+      target = {
+        dev = "vda"
+        bus = "virtio"
+      }
+    }]
+    
+    interfaces = [{
+      network = {
+        network = libvirt_network.frontend.name
+      }
+      model = {
+        type = "virtio"
+      }
+      wait_for_lease = true
+    }]
+    
+    console = [{
+      type = "pty"
+      target = {
+        type = "serial"
+        port = 0
+      }
+    }]
+  }
+}
+
+# Conditional monitoring (only if enabled)
+resource "local_file" "monitoring" {
+  count = var.monitoring_enabled ? 1 : 0
+  
+  filename = "${path.module}/monitoring-config.json"
+  content = jsonencode({
+    environment = var.environment
+    servers     = libvirt_domain.server[*].name
+    enabled     = true
+  })
+}
+
+# Load balancer configuration (simulated)
+resource "local_file" "loadbalancer" {
+  filename = "${path.module}/lb-config.json"
+  content = jsonencode({
+    environment = var.environment
+    backend_servers = [
+      for i, server in libvirt_domain.server :
+      {
+        name = server.name
+        ip   = server.devices[0].interfaces[0].addresses[0]
+      }
+    ]
+  })
+}
+```
+
+**`modules/frontend/outputs.tf`:**
+```hcl
+output "network_id" {
+  description = "ID of the frontend network"
+  value       = libvirt_network.frontend.id
+}
+
+output "network_name" {
+  description = "Name of the frontend network"
+  value       = libvirt_network.frontend.name
+}
+
+output "server_ips" {
+  description = "IP addresses of web servers"
+  value = [
+    for server in libvirt_domain.server :
+    server.devices[0].interfaces[0].addresses[0]
+  ]
+}
+
+output "server_names" {
+  description = "Names of web servers"
+  value       = libvirt_domain.server[*].name
+}
+
+output "loadbalancer_config" {
+  description = "Load balancer configuration file path"
+  value       = local_file.loadbalancer.filename
+}
+```
+
+**`modules/frontend/README.md`:**
+```markdown
+# Frontend Module
+
+Creates frontend tier infrastructure including network, web servers, and load balancer configuration.
+
+## Resources Created
+
+- 1 libvirt network
+- N web server VMs (configurable)
+- 1 load balancer configuration file
+- 1 monitoring configuration file (conditional)
+
+## Usage
+
+```hcl
+module "frontend" {
+  source = "./modules/frontend"
+  
+  environment        = "dev"
+  server_count       = 2
+  network_cidr       = "192.168.10.0/24"
+  monitoring_enabled = false
+}
+```
+
+## Inputs
+
+| Name | Description | Type | Default | Required |
+|------|-------------|------|---------|----------|
+| environment | Environment name | string | - | yes |
+| server_count | Number of web servers | number | 2 | no |
+| network_cidr | Network CIDR block | string | - | yes |
+| monitoring_enabled | Enable monitoring | bool | false | no |
+
+## Outputs
+
+| Name | Description |
+|------|-------------|
+| network_id | Frontend network ID |
+| server_ips | List of server IP addresses |
+| loadbalancer_config | Path to LB config file |
+```
+
+**Key Patterns to Follow:**
+
+1. **Naming Convention**: `${var.environment}-<component>-<resource>`
+2. **Conditional Resources**: Use `count = condition ? 1 : 0`
+3. **Dynamic Lists**: Use `for` expressions for outputs
+4. **Validation**: Add validation blocks to variables
+5. **Documentation**: Always include README.md
+
+**Application Module Differences:**
+
+The application module is similar but:
+- Takes `frontend_network_id` as input (dependency)
+- Creates caching config conditionally
+- Uses different CIDR range
+
+**Database Module Differences:**
+
+The database module additionally:
+- Creates backup storage pool
+- Implements replication conditionally
+- Has stricter resource limits
+
+**App-Stack Module Pattern:**
+
+```hcl
+# modules/app-stack/main.tf
+module "frontend" {
+  source = "../frontend"
+  
+  environment        = var.environment
+  server_count       = var.frontend_config.server_count
+  network_cidr       = var.frontend_config.network_cidr
+  monitoring_enabled = var.frontend_config.monitoring_enabled
+}
+
+module "application" {
+  source = "../application"
+  
+  environment         = var.environment
+  server_count        = var.application_config.server_count
+  network_cidr        = var.application_config.network_cidr
+  frontend_network_id = module.frontend.network_id  # Dependency!
+  caching_enabled     = var.application_config.caching_enabled
+}
+
+module "database" {
+  source = "../database"
+  
+  environment          = var.environment
+  server_count         = var.database_config.server_count
+  network_cidr         = var.database_config.network_cidr
+  backup_enabled       = var.database_config.backup_enabled
+  replication_enabled  = var.database_config.replication_enabled
+}
+```
+
+**YAML Integration Pattern:**
+
+```hcl
+# main.tf (root)
+locals {
+  config = yamldecode(file("${path.module}/config/${var.environment}.yaml"))
+}
+
+module "app_stack" {
+  source = "./modules/app-stack"
+  
+  environment         = local.config.environment
+  frontend_config     = local.config.frontend
+  application_config  = local.config.application
+  database_config     = local.config.database
+}
+```
+
+
 ## 📄 YAML Configuration Requirements
 
 Create YAML configuration files for each environment:
@@ -191,6 +510,179 @@ You'll find existing "legacy" infrastructure that needs to be imported:
 
 **Task**: Import these resources into your Terraform configuration using import blocks, then refactor them to use your modules.
 
+
+### Detailed Import Instructions 📝
+
+**Step 1: Discover Legacy Resources**
+
+First, find what exists:
+
+```bash
+# List all networks
+virsh net-list --all
+
+# You should see: legacy-app-network
+
+# Get network UUID (you'll need this!)
+LEGACY_NET_UUID=$(virsh net-uuid legacy-app-network)
+echo "Legacy Network UUID: $LEGACY_NET_UUID"
+
+# List all VMs
+virsh list --all
+
+# You should see: legacy-app-server
+
+# Get VM UUID
+LEGACY_VM_UUID=$(virsh domuuid legacy-app-server)
+echo "Legacy VM UUID: $LEGACY_VM_UUID"
+```
+
+**Step 2: Create Import Blocks**
+
+Create `imports.tf`:
+
+```hcl
+# Import legacy network
+import {
+  to = libvirt_network.legacy
+  id = "<paste-network-uuid-here>"
+}
+
+# Import legacy VM
+import {
+  to = libvirt_domain.legacy
+  id = "<paste-vm-uuid-here>"
+}
+```
+
+**Step 3: Generate Configuration**
+
+Let Terraform generate the configuration:
+
+```bash
+# This will create generated.tf with the resource definitions
+terraform plan -generate-config-out=generated.tf
+```
+
+**Step 4: Review Generated Configuration**
+
+Open `generated.tf` and review:
+- Network configuration (CIDR, mode, etc.)
+- VM configuration (memory, vcpu, disks, etc.)
+
+**Step 5: Refactor into Modules**
+
+Instead of keeping resources in root, move them into your modules:
+
+```hcl
+# Option 1: Use existing module
+module "legacy_integration" {
+  source = "./modules/application"
+  
+  environment  = "legacy"
+  server_count = 1
+  network_cidr = "192.168.100.0/24"
+  # ... other settings from generated config
+}
+
+# Option 2: Create dedicated legacy module
+module "legacy" {
+  source = "./modules/legacy"
+  
+  network_uuid = var.legacy_network_uuid
+  # ... other settings
+}
+```
+
+**Step 6: Use moved Blocks for Refactoring**
+
+If you move resources into modules, use moved blocks:
+
+```hcl
+moved {
+  from = libvirt_network.legacy
+  to   = module.legacy.libvirt_network.main
+}
+
+moved {
+  from = libvirt_domain.legacy
+  to   = module.legacy.libvirt_domain.server
+}
+```
+
+**Step 7: Handle Network UUID Issue**
+
+⚠️ **Important**: Due to libvirt provider limitations, pass the network UUID as a variable instead of managing it:
+
+```hcl
+# variables.tf
+variable "legacy_network_uuid" {
+  description = "UUID of pre-existing legacy network"
+  type        = string
+}
+
+# main.tf - reference by UUID, don't manage
+resource "libvirt_domain" "legacy" {
+  devices = {
+    interfaces = [{
+      network_id = var.legacy_network_uuid  # Use UUID directly
+    }]
+  }
+}
+
+# terraform.tfvars
+legacy_network_uuid = "67c3b098-5846-4e5f-8787-f4a3bacca0e4"  # From virsh net-uuid
+```
+
+**Step 8: Test Import**
+
+```bash
+# Initialize
+terraform init
+
+# Plan (should show import operations)
+terraform plan
+
+# Apply (imports resources into state)
+terraform apply
+
+# Verify
+terraform state list
+# Should show: libvirt_network.legacy, libvirt_domain.legacy
+```
+
+**Common Import Pitfalls:**
+
+❌ **Don't**: Use resource names as IDs
+```hcl
+import {
+  id = "legacy-app-network"  # Wrong! Use UUID
+}
+```
+
+✅ **Do**: Use UUIDs
+```hcl
+import {
+  id = "67c3b098-5846-4e5f-8787-f4a3bacca0e4"  # Correct!
+}
+```
+
+❌ **Don't**: Try to manage imported network directly
+```hcl
+resource "libvirt_network" "legacy" {
+  name = "legacy-app-network"
+  # Will cause "inconsistent result" errors
+}
+```
+
+✅ **Do**: Pass UUID as variable
+```hcl
+variable "legacy_network_uuid" {
+  type = string
+}
+# Reference in VMs, don't manage network itself
+```
+
 **Note**: The legacy network UUID must be fetched dynamically and passed as a variable to avoid libvirt provider inconsistencies.
 
 ## 🚀 Advanced Pattern Requirements
@@ -253,6 +745,232 @@ Your solution will be validated against these criteria:
 - [ ] Consistent naming conventions
 - [ ] Comments where appropriate
 - [ ] No hardcoded values
+
+## 🗓️ Recommended Approach: Phased Implementation
+
+**Don't try to build everything at once!** Break this challenge into manageable phases.
+
+### Phase 1: Foundation (30 minutes)
+**Goal:** Set up basic structure
+
+```bash
+# Create directory structure
+mkdir -p modules/{frontend,application,database,app-stack}
+mkdir -p config
+
+# Create basic files
+touch modules/frontend/{main.tf,variables.tf,outputs.tf,README.md}
+touch modules/application/{main.tf,variables.tf,outputs.tf,README.md}
+touch modules/database/{main.tf,variables.tf,outputs.tf,README.md}
+touch modules/app-stack/{main.tf,variables.tf,outputs.tf,README.md}
+touch config/{dev,staging,prod}.yaml
+```
+
+**Checkpoint:** You have all directories and empty files created.
+
+---
+
+### Phase 2: Frontend Module (45 minutes)
+**Goal:** Build and test the frontend tier
+
+**Steps:**
+1. Define variables in `modules/frontend/variables.tf`
+2. Create network and VMs in `modules/frontend/main.tf`
+3. Add outputs in `modules/frontend/outputs.tf`
+4. Test with simple `main.tf` in root
+
+**Test:**
+```hcl
+# main.tf (temporary test)
+module "frontend" {
+  source = "./modules/frontend"
+  
+  environment    = "dev"
+  server_count   = 2
+  network_cidr   = "192.168.10.0/24"
+  monitoring_enabled = false
+}
+
+output "frontend_ips" {
+  value = module.frontend.server_ips
+}
+```
+
+```bash
+terraform init
+terraform plan
+terraform apply
+```
+
+**Checkpoint:** Frontend module works independently.
+
+---
+
+### Phase 3: Application & Database Modules (60 minutes)
+**Goal:** Build remaining tier modules
+
+**Application Module (30 min):**
+- Similar structure to frontend
+- Add dependency on frontend network
+- Include caching conditional
+
+**Database Module (30 min):**
+- Similar structure to frontend
+- Add backup pool
+- Include replication conditional
+
+**Test each module independently** before moving on.
+
+**Checkpoint:** All three tier modules work independently.
+
+---
+
+### Phase 4: YAML Configuration (30 minutes)
+**Goal:** Create environment configs
+
+**Steps:**
+1. Create `config/dev.yaml` with dev settings
+2. Create `config/staging.yaml` with staging settings
+3. Create `config/prod.yaml` with prod settings
+4. Test YAML parsing in `main.tf`
+
+**Test:**
+```hcl
+locals {
+  config = yamldecode(file("${path.module}/config/dev.yaml"))
+}
+
+output "parsed_config" {
+  value = local.config
+}
+```
+
+**Checkpoint:** YAML files parse correctly.
+
+---
+
+### Phase 5: App-Stack Composition (45 minutes)
+**Goal:** Compose all tiers into unified stack
+
+**Steps:**
+1. Create `modules/app-stack/main.tf` that uses all three tier modules
+2. Pass outputs between modules (frontend → application)
+3. Accept YAML config as input
+4. Test with dev environment
+
+**Checkpoint:** Complete stack deploys for dev environment.
+
+---
+
+### Phase 6: Multi-Environment Testing (30 minutes)
+**Goal:** Validate all environments work
+
+**Steps:**
+1. Deploy dev environment
+2. Deploy staging environment (different workspace or directory)
+3. Deploy prod environment
+4. Verify different configurations are applied
+
+**Checkpoint:** All three environments deploy successfully.
+
+---
+
+### Phase 7: Import Legacy Resources (30 minutes)
+**Goal:** Bring existing infrastructure under management
+
+**Steps:**
+1. Create `imports.tf` with import blocks
+2. Import legacy network
+3. Import legacy VM
+4. Generate configuration with `-generate-config-out`
+5. Refactor into modules
+
+**Checkpoint:** Legacy resources imported and managed.
+
+---
+
+### Phase 8: Advanced Patterns (30 minutes)
+**Goal:** Implement canary and conditionals
+
+**Canary Deployment:**
+```hcl
+variable "canary_percentage" {
+  default = 20
+}
+
+locals {
+  total_servers = var.server_count
+  canary_count  = floor(local.total_servers * var.canary_percentage / 100)
+  stable_count  = local.total_servers - local.canary_count
+}
+```
+
+**Conditional Resources:**
+```hcl
+resource "local_file" "monitoring" {
+  count = var.monitoring_enabled ? 1 : 0
+  # ...
+}
+```
+
+**Checkpoint:** Advanced patterns implemented and tested.
+
+---
+
+### Phase 9: Documentation & Polish (20 minutes)
+**Goal:** Add documentation and final touches
+
+**Steps:**
+1. Write README.md for each module
+2. Add comments to complex logic
+3. Verify variable descriptions
+4. Check output descriptions
+5. Remove any hardcoded values
+
+**Checkpoint:** Code is well-documented and clean.
+
+---
+
+### Phase 10: Final Validation (10 minutes)
+**Goal:** Ensure everything passes checks
+
+**Steps:**
+1. Run `terraform fmt -recursive`
+2. Run `terraform validate`
+3. Test all environments one more time
+4. Review checklist below
+5. Click "Check"
+
+**Checkpoint:** Ready for validation!
+
+---
+
+### ⏱️ Total Estimated Time: 5-6 hours
+
+**Time Management Tips:**
+- ✅ Take breaks between phases
+- ✅ If stuck on one phase, move to the next and come back
+- ✅ Test frequently (don't wait until the end)
+- ✅ Use `terraform destroy` between tests to clean up
+- ✅ Reference previous challenges for patterns
+
+**If You're Running Out of Time:**
+
+**Priority 1 (Must Have - 70 points):**
+- All three tier modules working
+- YAML configuration for at least dev
+- Basic app-stack composition
+
+**Priority 2 (Should Have - 20 points):**
+- Import legacy resources
+- Multi-environment support
+
+**Priority 3 (Nice to Have - 10 points):**
+- Advanced patterns (canary, conditionals)
+- Complete documentation
+
+---
+
 
 ## 🎓 Tips for Success
 
