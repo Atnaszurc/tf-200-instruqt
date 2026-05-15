@@ -449,6 +449,118 @@ terraform plan
 
 ---
 
+### Why Validate YAML Configuration? 🤔
+
+**The Problem Without Validation:**
+
+Imagine you have this YAML configuration:
+
+```yaml
+infrastructure:
+  networks:
+    - name: web-network
+      cidr: "192.168.10.0/24"
+  vms:
+    - name: web-server
+      memory_mb: 2048
+      network: web-netwrok  # ⚠️ Typo! Should be "web-network"
+```
+
+**What happens?**
+1. ✅ Terraform parses the YAML successfully (syntax is valid)
+2. ✅ Terraform starts creating resources
+3. ✅ Network gets created
+4. ❌ VM creation **fails** because "web-netwrok" doesn't exist
+5. 😞 You've wasted time and have partial infrastructure
+
+**The Solution With Validation:**
+
+```hcl
+# Validation catches the error BEFORE creating anything
+resource "terraform_data" "validate_vm_networks" {
+  lifecycle {
+    precondition {
+      condition     = contains(keys(local.networks), vm.network)
+      error_message = "VM references invalid network: ${vm.network}"
+    }
+  }
+}
+```
+
+**Result:**
+- ❌ Terraform **fails immediately** with clear error message
+- ✅ No resources created
+- ✅ You fix the typo in YAML
+- ✅ Run again successfully
+
+**Why This Matters:**
+
+| Without Validation | With Validation |
+|-------------------|-----------------|
+| Errors discovered during apply | Errors discovered during plan |
+| Partial infrastructure created | Nothing created until valid |
+| Unclear error messages | Clear, specific error messages |
+| Time wasted debugging | Fast feedback loop |
+
+<details>
+<summary>🔍 Real-World Example: The $10,000 Typo</summary>
+
+**True Story:**
+
+A team deployed 50 VMs using YAML configuration. One VM had a typo in the network name. The deployment:
+1. Created 49 VMs successfully
+2. Failed on the 50th VM
+3. Left infrastructure in inconsistent state
+4. Required manual cleanup
+5. Took 4 hours to fix
+
+**With validation:**
+- Would have failed in 5 seconds
+- Clear error: "VM 'app-server-50' references invalid network 'prod-netwrok'"
+- Fixed typo, rerun, done in 2 minutes
+
+**Cost of no validation:** 4 hours × $250/hour = $1,000 in engineer time, plus potential downtime costs.
+
+</details>
+
+**What You'll Learn:**
+
+In this section, you'll learn to:
+1. ✅ Validate required YAML keys exist
+2. ✅ Check data types and ranges (memory between 512MB-16GB)
+3. ✅ Verify references are valid (VMs reference existing networks)
+4. ✅ Prevent duplicate values (no overlapping network CIDRs)
+5. ✅ Provide helpful error messages
+
+**Connection to TF-100:**
+
+Remember variable validation from TF-100? This is the same concept, but for YAML configuration:
+
+```hcl
+# TF-100: Variable validation
+variable "environment" {
+  validation {
+    condition     = contains(["dev", "staging", "prod"], var.environment)
+    error_message = "Must be dev, staging, or prod"
+  }
+}
+
+# TF-200: YAML validation (same idea, different source)
+resource "terraform_data" "validate" {
+  lifecycle {
+    precondition {
+      condition     = contains(keys(local.networks), vm.network)
+      error_message = "VM references invalid network"
+    }
+  }
+}
+```
+
+**Key Insight:** Validation is like spell-check for your infrastructure configuration. It catches mistakes before they become expensive problems.
+
+---
+
+
 ## Section 3: YAML Validation 🔍
 
 ### Validating YAML Configuration

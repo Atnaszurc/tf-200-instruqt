@@ -155,6 +155,135 @@ By completing this challenge, you will:
 
 ---
 
+### Why Import Blocks? The Evolution of Terraform Import 🔄
+
+**The Old Way (Before Terraform 1.5):**
+
+Imagine you have a network that was created manually (or by another tool). To manage it with Terraform, you had to:
+
+```bash
+# Step 1: Run CLI command (not in version control)
+terraform import libvirt_network.existing existing-network
+
+# Step 2: Manually write configuration (error-prone)
+resource "libvirt_network" "existing" {
+  name      = "existing-network"
+  # What are the other settings? 🤔
+  # You have to look them up manually!
+}
+
+# Step 3: Run plan to see what you missed
+terraform plan
+# Error: Missing required argument "addresses"
+# Error: Missing required argument "mode"
+
+# Step 4: Fix configuration, repeat until it works
+```
+
+**Problems with the old way:**
+- ❌ Import command not in version control (can't review in PR)
+- ❌ Manual configuration writing (typos, missing attributes)
+- ❌ Trial-and-error to match existing resource
+- ❌ Not repeatable (hard to import same resource again)
+- ❌ Doesn't work well in CI/CD pipelines
+
+**The New Way (Terraform 1.5+):**
+
+```hcl
+# Step 1: Declare import in code (version controlled!)
+import {
+  to = libvirt_network.existing
+  id = "existing-network"
+}
+
+# Step 2: Let Terraform generate the configuration
+# terraform plan -generate-config-out=generated.tf
+
+# Step 3: Review generated configuration
+resource "libvirt_network" "existing" {
+  name      = "existing-network"
+  mode      = "nat"
+  addresses = ["10.17.3.0/24"]
+  # All attributes automatically discovered! ✅
+}
+```
+
+**Benefits of the new way:**
+- ✅ Import declaration in version control (reviewable in PRs)
+- ✅ Automatic configuration generation (no manual writing)
+- ✅ Accurate configuration (matches actual resource)
+- ✅ Repeatable (same process every time)
+- ✅ CI/CD friendly (works in automated pipelines)
+
+<details>
+<summary>🔍 Real-World Example: Importing 50 Networks</summary>
+
+**Scenario:** Your team needs to import 50 existing networks into Terraform.
+
+**Old Way (CLI Import):**
+```bash
+# Someone runs these commands (not in Git)
+terraform import libvirt_network.net1 network-1
+terraform import libvirt_network.net2 network-2
+# ... 48 more times ...
+
+# Then manually writes 50 resource blocks
+# Takes 4-6 hours, many mistakes
+```
+
+**New Way (Import Blocks):**
+```hcl
+# imports.tf (in Git, reviewable)
+import {
+  to = libvirt_network.net1
+  id = "network-1"
+}
+
+import {
+  to = libvirt_network.net2
+  id = "network-2"
+}
+# ... 48 more ...
+
+# Generate all configurations at once
+terraform plan -generate-config-out=generated.tf
+
+# Review, commit, done!
+# Takes 30 minutes, accurate
+```
+
+**Time saved:** 3.5-5.5 hours  
+**Accuracy:** Much higher (no manual typing)  
+**Reviewability:** Full PR review possible
+
+</details>
+
+**Key Insight:** Import blocks transform importing from a manual, error-prone process into a declarative, version-controlled workflow.
+
+**What You'll Learn:**
+
+In this section, you'll learn to:
+1. ✅ Use import blocks to declare imports in code
+2. ✅ Generate configuration automatically with `-generate-config-out`
+3. ✅ Review and refine generated configuration
+4. ✅ Import multiple resources efficiently
+5. ✅ Make imports part of your Git workflow
+
+**Connection to Infrastructure as Code:**
+
+Remember the core IaC principle: **Everything in version control**. Import blocks finally make imports follow this principle:
+
+| Aspect | Old CLI Import | New Import Blocks |
+|--------|---------------|-------------------|
+| Version Control | ❌ Command not tracked | ✅ Declaration in Git |
+| Code Review | ❌ Can't review | ✅ Full PR review |
+| Repeatability | ❌ Manual process | ✅ Automated |
+| CI/CD | ❌ Difficult | ✅ Easy |
+| Documentation | ❌ Lost over time | ✅ Self-documenting |
+
+---
+
+
 ## 📖 Section 1: Modern Import with Import Blocks
 
 ### Understanding Import Blocks
@@ -377,6 +506,179 @@ terraform plan
 If you see changes, your configuration doesn't match the actual resource. Update `networks.tf` accordingly.
 
 ---
+
+### Why moved Blocks? Safe Refactoring Without Destruction 🔄
+
+**The Problem Without moved Blocks:**
+
+Imagine you want to rename a resource for better clarity:
+
+```hcl
+# Old name (confusing)
+resource "libvirt_network" "net1" {
+  name = "production-network"
+}
+
+# You want to rename it to:
+resource "libvirt_network" "production_network" {
+  name = "production-network"
+}
+```
+
+**What happens without moved blocks?**
+
+```bash
+terraform plan
+
+# Terraform Plan:
+  # libvirt_network.net1 will be destroyed
+  - resource "libvirt_network" "net1" {
+      - name = "production-network"
+    }
+
+  # libvirt_network.production_network will be created
+  + resource "libvirt_network" "production_network" {
+      + name = "production-network"
+    }
+```
+
+**Result:**
+1. ❌ Network gets **destroyed**
+2. ❌ All VMs using it **lose connectivity**
+3. ❌ **Downtime** for production services
+4. ❌ New network created (different UUID)
+5. 😱 Just wanted to rename, caused outage!
+
+**The Solution With moved Blocks:**
+
+```hcl
+# Tell Terraform: "This is the same resource, just renamed"
+moved {
+  from = libvirt_network.net1
+  to   = libvirt_network.production_network
+}
+
+# New name
+resource "libvirt_network" "production_network" {
+  name = "production-network"
+}
+```
+
+```bash
+terraform plan
+
+# Terraform Plan:
+  # libvirt_network.net1 has moved to libvirt_network.production_network
+  ~ resource "libvirt_network" "production_network" {
+      # (no changes - just renamed in state)
+    }
+```
+
+**Result:**
+- ✅ **No destruction**
+- ✅ **No downtime**
+- ✅ State updated safely
+- ✅ Infrastructure unchanged
+
+<details>
+<summary>🔍 Real-World Example: Reorganizing 100 Resources</summary>
+
+**Scenario:** Your team wants to reorganize Terraform code by moving resources into modules.
+
+**Without moved blocks:**
+```hcl
+# Before: All in main.tf
+resource "libvirt_network" "web" { }
+resource "libvirt_network" "app" { }
+resource "libvirt_network" "db" { }
+# ... 97 more resources ...
+
+# After: Organized in modules
+module "networking" {
+  source = "./modules/networking"
+  # Contains the same networks
+}
+
+# Terraform plan without moved blocks:
+# - Destroy 100 resources
+# + Create 100 resources
+# ⚠️ COMPLETE INFRASTRUCTURE REBUILD!
+```
+
+**With moved blocks:**
+```hcl
+# migrations.tf
+moved {
+  from = libvirt_network.web
+  to   = module.networking.libvirt_network.web
+}
+
+moved {
+  from = libvirt_network.app
+  to   = module.networking.libvirt_network.app
+}
+
+moved {
+  from = libvirt_network.db
+  to   = module.networking.libvirt_network.db
+}
+# ... 97 more moved blocks ...
+
+# Terraform plan with moved blocks:
+# ~ 100 resources moved (no changes)
+# ✅ ZERO DOWNTIME!
+```
+
+**Impact:**
+- **Without moved blocks:** 2-4 hours downtime, high risk
+- **With moved blocks:** 0 downtime, zero risk
+- **Time to implement:** 30 minutes to write moved blocks
+- **Value:** Prevented production outage
+
+</details>
+
+**Why This Matters:**
+
+| Scenario | Without moved | With moved |
+|----------|--------------|------------|
+| Rename resource | Destroy + Create | State update only |
+| Move to module | Destroy + Create | State update only |
+| Reorganize code | Destroy + Create | State update only |
+| Downtime | Yes (minutes to hours) | No |
+| Risk | High | Very low |
+
+**Key Insight:** moved blocks are like "rename" in your file system - they update the reference without touching the actual thing.
+
+**What You'll Learn:**
+
+In this section, you'll learn to:
+1. ✅ Use moved blocks to rename resources safely
+2. ✅ Reorganize code without destroying infrastructure
+3. ✅ Move resources between modules
+4. ✅ Understand state manipulation commands
+5. ✅ Plan safe refactoring strategies
+
+**Connection to Software Development:**
+
+Think of moved blocks like refactoring in programming:
+
+```python
+# Refactoring code
+def old_function_name():  # Bad name
+    pass
+
+# Rename to better name
+def calculate_total():  # Good name
+    pass
+
+# Your IDE updates all references automatically
+# No functionality changes, just better organization
+```
+
+Terraform's moved blocks do the same for infrastructure - update references without changing functionality.
+
+---
+
 
 ## 📖 Section 2: State Manipulation & Refactoring
 
