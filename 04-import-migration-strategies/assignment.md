@@ -507,6 +507,179 @@ If you see changes, your configuration doesn't match the actual resource. Update
 
 ---
 
+### Why moved Blocks? Safe Refactoring Without Destruction 🔄
+
+**The Problem Without moved Blocks:**
+
+Imagine you want to rename a resource for better clarity:
+
+```hcl
+# Old name (confusing)
+resource "libvirt_network" "net1" {
+  name = "production-network"
+}
+
+# You want to rename it to:
+resource "libvirt_network" "production_network" {
+  name = "production-network"
+}
+```
+
+**What happens without moved blocks?**
+
+```bash
+terraform plan
+
+# Terraform Plan:
+  # libvirt_network.net1 will be destroyed
+  - resource "libvirt_network" "net1" {
+      - name = "production-network"
+    }
+
+  # libvirt_network.production_network will be created
+  + resource "libvirt_network" "production_network" {
+      + name = "production-network"
+    }
+```
+
+**Result:**
+1. ❌ Network gets **destroyed**
+2. ❌ All VMs using it **lose connectivity**
+3. ❌ **Downtime** for production services
+4. ❌ New network created (different UUID)
+5. 😱 Just wanted to rename, caused outage!
+
+**The Solution With moved Blocks:**
+
+```hcl
+# Tell Terraform: "This is the same resource, just renamed"
+moved {
+  from = libvirt_network.net1
+  to   = libvirt_network.production_network
+}
+
+# New name
+resource "libvirt_network" "production_network" {
+  name = "production-network"
+}
+```
+
+```bash
+terraform plan
+
+# Terraform Plan:
+  # libvirt_network.net1 has moved to libvirt_network.production_network
+  ~ resource "libvirt_network" "production_network" {
+      # (no changes - just renamed in state)
+    }
+```
+
+**Result:**
+- ✅ **No destruction**
+- ✅ **No downtime**
+- ✅ State updated safely
+- ✅ Infrastructure unchanged
+
+<details>
+<summary>🔍 Real-World Example: Reorganizing 100 Resources</summary>
+
+**Scenario:** Your team wants to reorganize Terraform code by moving resources into modules.
+
+**Without moved blocks:**
+```hcl
+# Before: All in main.tf
+resource "libvirt_network" "web" { }
+resource "libvirt_network" "app" { }
+resource "libvirt_network" "db" { }
+# ... 97 more resources ...
+
+# After: Organized in modules
+module "networking" {
+  source = "./modules/networking"
+  # Contains the same networks
+}
+
+# Terraform plan without moved blocks:
+# - Destroy 100 resources
+# + Create 100 resources
+# ⚠️ COMPLETE INFRASTRUCTURE REBUILD!
+```
+
+**With moved blocks:**
+```hcl
+# migrations.tf
+moved {
+  from = libvirt_network.web
+  to   = module.networking.libvirt_network.web
+}
+
+moved {
+  from = libvirt_network.app
+  to   = module.networking.libvirt_network.app
+}
+
+moved {
+  from = libvirt_network.db
+  to   = module.networking.libvirt_network.db
+}
+# ... 97 more moved blocks ...
+
+# Terraform plan with moved blocks:
+# ~ 100 resources moved (no changes)
+# ✅ ZERO DOWNTIME!
+```
+
+**Impact:**
+- **Without moved blocks:** 2-4 hours downtime, high risk
+- **With moved blocks:** 0 downtime, zero risk
+- **Time to implement:** 30 minutes to write moved blocks
+- **Value:** Prevented production outage
+
+</details>
+
+**Why This Matters:**
+
+| Scenario | Without moved | With moved |
+|----------|--------------|------------|
+| Rename resource | Destroy + Create | State update only |
+| Move to module | Destroy + Create | State update only |
+| Reorganize code | Destroy + Create | State update only |
+| Downtime | Yes (minutes to hours) | No |
+| Risk | High | Very low |
+
+**Key Insight:** moved blocks are like "rename" in your file system - they update the reference without touching the actual thing.
+
+**What You'll Learn:**
+
+In this section, you'll learn to:
+1. ✅ Use moved blocks to rename resources safely
+2. ✅ Reorganize code without destroying infrastructure
+3. ✅ Move resources between modules
+4. ✅ Understand state manipulation commands
+5. ✅ Plan safe refactoring strategies
+
+**Connection to Software Development:**
+
+Think of moved blocks like refactoring in programming:
+
+```python
+# Refactoring code
+def old_function_name():  # Bad name
+    pass
+
+# Rename to better name
+def calculate_total():  # Good name
+    pass
+
+# Your IDE updates all references automatically
+# No functionality changes, just better organization
+```
+
+Terraform's moved blocks do the same for infrastructure - update references without changing functionality.
+
+---
+
+
 ## 📖 Section 2: State Manipulation & Refactoring
 
 ### Understanding moved Blocks
