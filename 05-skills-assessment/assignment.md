@@ -30,15 +30,17 @@ notes:
     patterns (canary deployments, conditional resources)\n5. Ensure everything follows
     best practices\n\nGood luck! \U0001F3AF\n"
 tabs:
+- id: s1qg9estdcka
+  title: Terminal
+  type: terminal
+  hostname: workstation
+  workdir: /root/terraform
 - id: 5ebf42jq8ao7
   title: Editor
   type: code
   hostname: workstation
   path: /root/terraform
-- id: s1qg9estdcka
-  title: Terminal
-  type: terminal
-  hostname: workstation
+  new_file: true
 difficulty: basic
 timelimit: 7200
 enhanced_loading: null

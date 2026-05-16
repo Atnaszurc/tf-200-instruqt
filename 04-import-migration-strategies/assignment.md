@@ -111,15 +111,17 @@ notes:
 
     Let's practice safe state manipulation!
 tabs:
+- id: hjqfukox02po
+  title: Terminal
+  type: terminal
+  hostname: workstation
+  workdir: /root/terraform
 - id: unuwkzrakn9u
   title: Editor
   type: code
   hostname: workstation
   path: /root/terraform
-- id: hjqfukox02po
-  title: Terminal
-  type: terminal
-  hostname: workstation
+  new_file: true
 difficulty: basic
 timelimit: 3600
 enhanced_loading: null

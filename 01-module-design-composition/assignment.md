@@ -54,11 +54,13 @@ tabs:
   title: Terminal
   type: terminal
   hostname: workstation
+  workdir: /root/terraform-workspace
 - id: d2yitwkintz5
   title: Code Editor
   type: code
   hostname: workstation
   path: /root/terraform-workspace
+  new_file: true
 difficulty: basic
 timelimit: 5400
 enhanced_loading: null
