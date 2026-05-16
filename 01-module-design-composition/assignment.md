@@ -572,7 +572,7 @@ EOF
 
 Document your module:
 
-```bash
+````bash
 cat > README.md << 'EOF'
 # App Config Module
 
@@ -623,7 +623,7 @@ module "app_config" {
 | config_files | Map of configuration file paths |
 | tags | All applied tags |
 EOF
-```
+````
 
 ### Step 6: Test the Module
 
@@ -880,13 +880,10 @@ output "bridge" {
   description = "Bridge interface name"
   value       = libvirt_network.network.bridge
 }
-
-output "addresses" {
-  description = "Network address ranges"
-  value       = libvirt_network.network.addresses
-}
 EOF
 ```
+
+**Note**: In libvirt provider 0.9+, the `addresses` attribute is not available as an output. Networks are automatically configured with NAT and DHCP.
 
 ### Module 2: VM Module
 
@@ -995,17 +992,34 @@ resource "libvirt_domain" "vm" {
 
   devices = {
     disks = [{
-      volume_id = libvirt_volume.vm_disk.id
+      source = {
+        volume = {
+          pool   = "default"
+          volume = libvirt_volume.vm_disk.name
+        }
+      }
+      target = {
+        dev = "vda"
+        bus = "virtio"
+      }
     }]
 
     interfaces = [{
-      network_id = var.network_id
+      network = {
+        network = var.network_id
+      }
+      model = {
+        type = "virtio"
+      }
+      wait_for_lease = true
     }]
 
-    consoles = [{
-      type        = "pty"
-      target_type = "serial"
-      target_port = "0"
+    console = [{
+      type = "pty"
+      target = {
+        type = "serial"
+        port = 0
+      }
     }]
   }
 }
@@ -1028,12 +1042,14 @@ output "name" {
   value       = libvirt_domain.vm.name
 }
 
-output "network_interfaces" {
-  description = "Network interfaces of the VM"
-  value       = libvirt_domain.vm.network_interface
+output "uuid" {
+  description = "UUID of the VM"
+  value       = libvirt_domain.vm.uuid
 }
 EOF
 ```
+
+**Note**: In libvirt provider 0.9+, the `network_interface` attribute is not available as an output. Use `uuid` to identify VMs instead.
 
 ---
 
@@ -1053,7 +1069,7 @@ terraform {
   required_providers {
     libvirt = {
       source  = "dmacvicar/libvirt"
-      version = "~> 0.8"
+      version = "~> 0.9"
     }
   }
 }
@@ -1122,7 +1138,6 @@ output "network_info" {
     id        = module.app_network.id
     name      = module.app_network.name
     bridge    = module.app_network.bridge
-    addresses = module.app_network.addresses
   }
 }
 

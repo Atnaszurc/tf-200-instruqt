@@ -393,21 +393,38 @@ resource "libvirt_domain" "vms" {
   devices = {
     disks = [
       {
-        volume_id = libvirt_volume.vm_disks[each.key].id
+        source = {
+          volume = {
+            pool   = each.value.pool
+            volume = libvirt_volume.vm_disks[each.key].name
+          }
+        }
+        target = {
+          dev = "vda"
+          bus = "virtio"
+        }
       }
     ]
 
     interfaces = [
       {
-        network_id = libvirt_network.networks[each.value.network].id
+        network = {
+          network = libvirt_network.networks[each.value.network].name
+        }
+        model = {
+          type = "virtio"
+        }
+        wait_for_lease = true
       }
     ]
 
-    consoles = [
+    console = [
       {
-        type        = "pty"
-        target_type = "serial"
-        target_port = 0
+        type = "pty"
+        target = {
+          type = "serial"
+          port = 0
+        }
       }
     ]
   }
@@ -978,21 +995,38 @@ resource "libvirt_domain" "env_vms" {
   devices = {
     disks = [
       {
-        volume_id = libvirt_volume.env_vm_disks[each.key].id
+        source = {
+          volume = {
+            pool   = "default"
+            volume = libvirt_volume.env_vm_disks[each.key].name
+          }
+        }
+        target = {
+          dev = "vda"
+          bus = "virtio"
+        }
       }
     ]
 
     interfaces = [
       {
-        network_id = libvirt_network.env_networks[each.value.network].id
+        network = {
+          network = libvirt_network.env_networks[each.value.network].name
+        }
+        model = {
+          type = "virtio"
+        }
+        wait_for_lease = true
       }
     ]
 
-    consoles = [
+    console = [
       {
-        type        = "pty"
-        target_type = "serial"
-        target_port = 0
+        type = "pty"
+        target = {
+          type = "serial"
+          port = 0
+        }
       }
     ]
   }

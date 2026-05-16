@@ -344,9 +344,9 @@ output "pool_name" {
   value       = libvirt_pool.this.name
 }
 
-output "volume_ids" {
-  description = "Map of volume IDs"
-  value       = { for k, v in libvirt_volume.volumes : k => v.id }
+output "volume_names" {
+  description = "Map of volume names"
+  value       = { for k, v in libvirt_volume.volumes : k => v.name }
 }
 ```
 
@@ -364,9 +364,9 @@ Create `modules/compute/variables.tf`:
 variable "vms" {
   description = "Map of VMs to create"
   type = map(object({
-    memory_mb  = number
-    vcpu_count = number
-    volume_id  = string
+    memory_mb   = number
+    vcpu_count  = number
+    volume_name = string
   }))
 }
 
@@ -412,17 +412,34 @@ resource "libvirt_domain" "vms" {
 
   devices = {
     disks = [{
-      volume_id = each.value.volume_id
+      source = {
+        volume = {
+          pool   = "default"
+          volume = each.value.volume_name
+        }
+      }
+      target = {
+        dev = "vda"
+        bus = "virtio"
+      }
     }]
 
     interfaces = [{
-      network_id = var.network_id
+      network = {
+        network = var.network_id
+      }
+      model = {
+        type = "virtio"
+      }
+      wait_for_lease = true
     }]
 
-    consoles = [{
-      type        = "pty"
-      target_type = "serial"
-      target_port = "0"
+    console = [{
+      type = "pty"
+      target = {
+        type = "serial"
+        port = 0
+      }
     }]
   }
 }
@@ -528,9 +545,9 @@ module "compute" {
   vms = {
     for vm_name, vm_config in var.vms :
     "${var.app_name}-${var.environment}-${vm_name}" => {
-      memory_mb  = vm_config.memory_mb
-      vcpu_count = vm_config.vcpu_count
-      volume_id  = module.storage.volume_ids[vm_name]
+      memory_mb   = vm_config.memory_mb
+      vcpu_count  = vm_config.vcpu_count
+      volume_name = module.storage.volume_names[vm_name]
     }
   }
 
@@ -583,7 +600,7 @@ terraform {
   required_providers {
     libvirt = {
       source  = "dmacvicar/libvirt"
-      version = "~> 0.8"
+      version = "~> 0.9"
     }
   }
 }
