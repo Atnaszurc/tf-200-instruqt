@@ -13,3 +13,8 @@ variable "legacy_network_uuid" {
   description = "UUID of the existing legacy network (fetched from virsh)"
   type        = string
 }
+
+variable "legacy_app_domain_uuid" {
+  description = "UUID of the existing legacy domain (fetched from virsh)"
+  type        = string
+}

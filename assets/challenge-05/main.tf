@@ -42,7 +42,7 @@ resource "libvirt_volume" "base" {
 # Import legacy resources
 import {
   to = libvirt_domain.legacy
-  id = "legacy-app-server"
+  id = var.legacy_app_domain_uuid
 }
 
 # Legacy domain (imported) - network is left unmanaged to avoid provider bug

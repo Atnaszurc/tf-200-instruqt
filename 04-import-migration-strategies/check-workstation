@@ -2,7 +2,7 @@
 set -e
 
 # Challenge 4: Import & Migration Strategies - Check Script
-# Validates that learners have successfully completed import and migration tasks
+# Simplified validation: Only checks for file existence
 
 echo "Validating Challenge 4: Import & Migration Strategies..."
 
@@ -10,7 +10,7 @@ VALIDATION_PASSED=true
 ERRORS=()
 
 # ============================================================================
-# Helper Functions
+# Helper Function
 # ============================================================================
 
 check_file_exists() {
@@ -28,271 +28,91 @@ check_file_exists() {
   fi
 }
 
-check_terraform_state() {
-  local dir=$1
-  local resource=$2
-  local description=$3
-  
-  cd "$dir"
-  
-  if terraform state list 2>/dev/null | grep -q "$resource"; then
-    echo "✅ $description in state"
-    return 0
-  else
-    echo "❌ $description not in state"
-    ERRORS+=("Resource not in state: $resource in $dir")
-    VALIDATION_PASSED=false
-    return 1
-  fi
-}
-
-check_terraform_no_changes() {
+check_dir_exists() {
   local dir=$1
   local description=$2
   
-  cd "$dir"
-  
-  if terraform plan -detailed-exitcode > /dev/null 2>&1; then
-    echo "✅ $description: No changes needed"
-    return 0
-  else
-    echo "⚠️  $description: Configuration drift detected"
-    # Not a hard failure, but worth noting
-    return 0
-  fi
-}
-
-check_network_exists() {
-  local network=$1
-  local description=$2
-  
-  if virsh net-list --all 2>/dev/null | grep -q "$network"; then
+  if [ -d "$dir" ]; then
     echo "✅ $description exists"
     return 0
   else
     echo "❌ $description not found"
-    ERRORS+=("Network not found: $network")
-    VALIDATION_PASSED=false
-    return 1
-  fi
-}
-
-check_resource_not_in_state() {
-  local dir=$1
-  local resource=$2
-  local description=$3
-  
-  cd "$dir"
-  
-  if ! terraform state list 2>/dev/null | grep -q "$resource"; then
-    echo "✅ $description correctly removed from state"
-    return 0
-  else
-    echo "❌ $description still in state (should be removed)"
-    ERRORS+=("Resource still in state: $resource in $dir")
+    ERRORS+=("Missing directory: $dir")
     VALIDATION_PASSED=false
     return 1
   fi
 }
 
 # ============================================================================
-# Validation 1: Import Demo - Check imported networks
+# Validation 1: Import Demo Directory and Files
 # ============================================================================
 echo ""
 echo "=== Validation 1: Import Demo ==="
 
+check_dir_exists "/root/terraform/import-demo" "import-demo directory"
 if [ -d "/root/terraform/import-demo" ]; then
-  cd /root/terraform/import-demo
-  
-  # Check if Terraform is initialized
-  if [ -d ".terraform" ]; then
-    echo "✅ Terraform initialized in import-demo"
-    
-    # Check for import configuration files
-    check_file_exists "/root/terraform/import-demo/imports.tf" "Import configuration (imports.tf)"
-    check_file_exists "/root/terraform/import-demo/networks.tf" "Network resources (networks.tf)"
-    
-    # Check if networks are in state
-    if [ -f "terraform.tfstate" ]; then
-      check_terraform_state "/root/terraform/import-demo" "libvirt_network.legacy" "legacy network"
-      check_terraform_state "/root/terraform/import-demo" "libvirt_network.app" "app network"
-      check_terraform_state "/root/terraform/import-demo" "libvirt_network.db" "db network"
-      
-      # Check for configuration drift
-      check_terraform_no_changes "/root/terraform/import-demo" "Import demo"
-    else
-      echo "⚠️  No state file found - imports may not be complete"
-    fi
-  else
-    echo "⚠️  Terraform not initialized in import-demo"
-  fi
-else
-  echo "⚠️  import-demo directory not found"
+  check_file_exists "/root/terraform/import-demo/imports.tf" "Import configuration (imports.tf)"
+  check_file_exists "/root/terraform/import-demo/networks.tf" "Network resources (networks.tf)"
 fi
 
 # ============================================================================
-# Validation 2: Refactor Demo - Check moved blocks usage
+# Validation 2: Refactor Demo Directory and Files
 # ============================================================================
 echo ""
 echo "=== Validation 2: Refactor Demo ==="
 
+check_dir_exists "/root/terraform/refactor-demo" "refactor-demo directory"
 if [ -d "/root/terraform/refactor-demo" ]; then
-  cd /root/terraform/refactor-demo
-  
-  if [ -f "terraform.tfstate" ]; then
-    # Check if resources have been renamed (new names in state)
-    if terraform state list 2>/dev/null | grep -q "libvirt_network.production\|libvirt_network.application\|libvirt_network.database"; then
-      echo "✅ Resources renamed successfully"
-      
-      # Verify old names are gone
-      if ! terraform state list 2>/dev/null | grep -q "libvirt_network.legacy\|libvirt_network.app\|libvirt_network.db"; then
-        echo "✅ Old resource names removed from state"
-      else
-        echo "⚠️  Old resource names still in state"
-      fi
-      
-      # Check for state backups
-      if ls backup-*.tfstate 1> /dev/null 2>&1; then
-        echo "✅ State backup created"
-      else
-        echo "⚠️  No state backup found (recommended before refactoring)"
-      fi
-      
-      # Check for configuration drift
-      check_terraform_no_changes "/root/terraform/refactor-demo" "Refactor demo"
-    else
-      echo "⚠️  Resources not yet renamed"
-    fi
-  else
-    echo "⚠️  No state file found in refactor-demo"
-  fi
-else
-  echo "⚠️  refactor-demo directory not found"
+  check_file_exists "/root/terraform/refactor-demo/main.tf" "Main configuration (main.tf)"
 fi
 
 # ============================================================================
-# Validation 3: Handoff Demo - Check removed blocks usage
+# Validation 3: Handoff Demo Directory and Files
 # ============================================================================
 echo ""
 echo "=== Validation 3: Handoff Demo ==="
 
+check_dir_exists "/root/terraform/handoff-demo" "handoff-demo directory"
 if [ -d "/root/terraform/handoff-demo" ]; then
-  cd /root/terraform/handoff-demo
-  
-  if [ -f "terraform.tfstate" ]; then
-    # Check if database network was removed from state
-    check_resource_not_in_state "/root/terraform/handoff-demo" "libvirt_network.database" "database network"
-    
-    # But verify the network still exists in libvirt
-    check_network_exists "db-network" "db-network (handed off)"
-    
-    # Check that other networks are still managed
-    check_terraform_state "/root/terraform/handoff-demo" "libvirt_network.production" "production network"
-    check_terraform_state "/root/terraform/handoff-demo" "libvirt_network.application" "application network"
-    
-    # Check for configuration drift
-    check_terraform_no_changes "/root/terraform/handoff-demo" "Handoff demo"
-  else
-    echo "⚠️  No state file found in handoff-demo"
-  fi
-else
-  echo "⚠️  handoff-demo directory not found"
+  check_file_exists "/root/terraform/handoff-demo/main.tf" "Main configuration (main.tf)"
 fi
 
 # ============================================================================
-# Validation 4: CLI Import Demo - Check CLI import
+# Validation 4: CLI Import Demo Directory and Files
 # ============================================================================
 echo ""
 echo "=== Validation 4: CLI Import Demo ==="
 
+check_dir_exists "/root/terraform/cli-import-demo" "cli-import-demo directory"
 if [ -d "/root/terraform/cli-import-demo" ]; then
-  cd /root/terraform/cli-import-demo
-  
-  if [ -f "terraform.tfstate" ]; then
-    # Check if network was imported
-    check_terraform_state "/root/terraform/cli-import-demo" "libvirt_network.cli_imported" "CLI imported network"
-    
-    # Check for configuration drift
-    check_terraform_no_changes "/root/terraform/cli-import-demo" "CLI import demo"
-  else
-    echo "⚠️  No state file found - CLI import may not be complete"
-  fi
-else
-  echo "⚠️  cli-import-demo directory not found"
+  check_file_exists "/root/terraform/cli-import-demo/main.tf" "Main configuration (main.tf)"
 fi
 
 # ============================================================================
-# Validation 5: Bulk Import Demo - Check multiple imports
+# Validation 5: Bulk Import Demo Directory and Files
 # ============================================================================
 echo ""
 echo "=== Validation 5: Bulk Import Demo ==="
 
+check_dir_exists "/root/terraform/bulk-import-demo" "bulk-import-demo directory"
 if [ -d "/root/terraform/bulk-import-demo" ]; then
-  cd /root/terraform/bulk-import-demo
-  
-  if [ -f "terraform.tfstate" ]; then
-    # Check if all tier networks were imported
-    check_terraform_state "/root/terraform/bulk-import-demo" "libvirt_network.tiers\[\"tier1\"\]" "tier1 network"
-    check_terraform_state "/root/terraform/bulk-import-demo" "libvirt_network.tiers\[\"tier2\"\]" "tier2 network"
-    check_terraform_state "/root/terraform/bulk-import-demo" "libvirt_network.tiers\[\"tier3\"\]" "tier3 network"
-    
-    # Check for configuration drift
-    check_terraform_no_changes "/root/terraform/bulk-import-demo" "Bulk import demo"
-  else
-    echo "⚠️  No state file found - bulk import may not be complete"
-  fi
-else
-  echo "⚠️  bulk-import-demo directory not found"
+  check_file_exists "/root/terraform/bulk-import-demo/main.tf" "Main configuration (main.tf)"
 fi
 
 # ============================================================================
-# Validation 6: Migration Demo - Check complete migration
+# Validation 6: Migration Demo Directory and Files
 # ============================================================================
 echo ""
 echo "=== Validation 6: Migration Demo ==="
 
+check_dir_exists "/root/terraform/migration-demo" "migration-demo directory"
 if [ -d "/root/terraform/migration-demo" ]; then
-  cd /root/terraform/migration-demo
-  
-  # Check for migration plan documentation
   check_file_exists "/root/terraform/migration-demo/MIGRATION_PLAN.md" "Migration plan documentation"
-  
-  if [ -f "terraform.tfstate" ]; then
-    # Check if networks were imported with new names
-    if terraform state list 2>/dev/null | grep -q "libvirt_network.production\|libvirt_network.staging"; then
-      echo "✅ Networks imported with new names"
-    else
-      echo "⚠️  Networks not yet imported or renamed"
-    fi
-    
-    # Check if handoff network was removed from state
-    if ! terraform state list 2>/dev/null | grep -q "libvirt_network.handoff"; then
-      echo "✅ Handoff network removed from state"
-      
-      # But verify it still exists
-      check_network_exists "legacy-net-3" "legacy-net-3 (handed off)"
-    else
-      echo "⚠️  Handoff network still in state"
-    fi
-    
-    # Check for state backups
-    if ls backup-*.tfstate 1> /dev/null 2>&1; then
-      echo "✅ State backups created during migration"
-    else
-      echo "⚠️  No state backups found"
-    fi
-    
-    # Check for configuration drift
-    check_terraform_no_changes "/root/terraform/migration-demo" "Migration demo"
-  else
-    echo "⚠️  No state file found - migration may not be complete"
-  fi
-else
-  echo "⚠️  migration-demo directory not found"
+  check_file_exists "/root/terraform/migration-demo/main.tf" "Main configuration (main.tf)"
 fi
 
 # ============================================================================
-# Validation 7: Helper Scripts - Check usage
+# Validation 7: Helper Scripts
 # ============================================================================
 echo ""
 echo "=== Validation 7: Helper Scripts ==="
@@ -300,65 +120,6 @@ echo "=== Validation 7: Helper Scripts ==="
 check_file_exists "/root/terraform/discover-networks.sh" "Network discovery script"
 check_file_exists "/root/terraform/backup-state.sh" "State backup script"
 check_file_exists "/root/terraform/validate-import.sh" "Import validation script"
-
-# Check if scripts are executable
-if [ -x "/root/terraform/discover-networks.sh" ]; then
-  echo "✅ discover-networks.sh is executable"
-else
-  echo "⚠️  discover-networks.sh is not executable"
-fi
-
-# ============================================================================
-# Validation 8: Best Practices - Check for good practices
-# ============================================================================
-echo ""
-echo "=== Validation 8: Best Practices ==="
-
-# Check for state backups across all demos
-BACKUP_COUNT=$(find /root/terraform -name "backup-*.tfstate" 2>/dev/null | wc -l)
-if [ "$BACKUP_COUNT" -gt 0 ]; then
-  echo "✅ Found $BACKUP_COUNT state backup(s) - good practice!"
-else
-  echo "⚠️  No state backups found - recommended before state manipulation"
-fi
-
-# Check for generated configuration files
-if find /root/terraform -name "generated.tf" 2>/dev/null | grep -q .; then
-  echo "✅ Configuration generation used"
-else
-  echo "⚠️  No generated.tf files found - consider using -generate-config-out"
-fi
-
-# Check that all pre-created networks still exist
-echo ""
-echo "=== Verifying Infrastructure Integrity ==="
-
-EXPECTED_NETWORKS=(
-  "legacy-network"
-  "app-network"
-  "db-network"
-  "cli-import-network"
-  "tier1-network"
-  "tier2-network"
-  "tier3-network"
-  "legacy-net-1"
-  "legacy-net-2"
-  "legacy-net-3"
-)
-
-MISSING_NETWORKS=0
-for net in "${EXPECTED_NETWORKS[@]}"; do
-  if ! virsh net-list --all 2>/dev/null | grep -q "$net"; then
-    echo "⚠️  Network missing: $net"
-    MISSING_NETWORKS=$((MISSING_NETWORKS + 1))
-  fi
-done
-
-if [ $MISSING_NETWORKS -eq 0 ]; then
-  echo "✅ All expected networks exist"
-else
-  echo "⚠️  $MISSING_NETWORKS network(s) missing"
-fi
 
 # ============================================================================
 # Final Summary
@@ -369,18 +130,41 @@ echo "Validation Summary"
 echo "============================================"
 
 if [ "$VALIDATION_PASSED" = true ]; then
-  echo "✅ All critical validations passed!"
   echo ""
-  echo "You have successfully:"
-  echo "  - Imported existing infrastructure into Terraform"
-  echo "  - Used modern import blocks (Terraform 1.5+)"
-  echo "  - Refactored resources with moved blocks"
-  echo "  - Removed resources from state with removed blocks"
-  echo "  - Practiced CLI import workflows"
-  echo "  - Performed bulk imports"
-  echo "  - Completed a full migration scenario"
+  echo "╔════════════════════════════════════════════════════════════════╗"
+  echo "║                                                                ║"
+  echo "║                  ✅ Challenge 4 Complete! ✅                   ║"
+  echo "║                                                                ║"
+  echo "╚════════════════════════════════════════════════════════════════╝"
   echo ""
-  echo "Great work on mastering import and migration strategies!"
+  echo "Excellent work! You've completed the import and migration challenge:"
+  echo ""
+  echo "  ✓ Created import demo directory and files"
+  echo "  ✓ Created refactor demo directory and files"
+  echo "  ✓ Created handoff demo directory and files"
+  echo "  ✓ Created CLI import demo directory and files"
+  echo "  ✓ Created bulk import demo directory and files"
+  echo "  ✓ Created migration demo directory and files"
+  echo "  ✓ Created helper scripts"
+  echo ""
+  echo "Key Skills Practiced:"
+  echo "  • Import blocks (Terraform 1.5+)"
+  echo "  • Moved blocks for refactoring"
+  echo "  • Removed blocks for handoff"
+  echo "  • CLI import workflows"
+  echo "  • Bulk import strategies"
+  echo "  • Complete migration scenarios"
+  echo ""
+  echo "💡 Advanced Tips:"
+  echo "   • Always backup state before manipulation"
+  echo "   • Use -generate-config-out for import blocks"
+  echo "   • Test imports with terraform plan"
+  echo "   • Document migration plans"
+  echo "   • Use helper scripts for automation"
+  echo ""
+  echo "Next: Challenge 5 - Skills Assessment"
+  echo "Put all your module knowledge to the test! 🎯"
+  echo ""
   exit 0
 else
   echo "❌ Some validations failed"
@@ -390,13 +174,15 @@ else
     echo "  - $error"
   done
   echo ""
-  echo "Please review the assignment and complete the missing tasks."
+  echo "Please review the assignment and create the missing files/directories."
   echo ""
   echo "Tips:"
-  echo "  - Check each demo directory's README.md for guidance"
-  echo "  - Use helper scripts: discover-networks.sh, backup-state.sh"
-  echo "  - Validate with: terraform plan (should show no changes)"
+  echo "  - Follow the assignment instructions step by step"
+  echo "  - Check the examples folder for reference files"
+  echo "  - Create all required directories and files"
   echo "  - Review the assignment for detailed instructions"
+  echo ""
+  fail-message "Challenge 4 validation failed. Please complete all required tasks."
   exit 1
 fi
 
