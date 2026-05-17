@@ -342,7 +342,17 @@ APPLY_EXIT=$?
 set -e  # Re-enable exit on error
 
 if [ $APPLY_EXIT -eq 0 ]; then
+  echo "✅ Initial apply complete"
+  
+  # Step 3.5: Workaround for libvirt provider bug with moved blocks
+  echo ""
+  echo "Applying workaround for libvirt provider bug..."
+  echo "(Provider returns null for some fields after moved blocks)"
+  terraform apply -refresh-only -auto-approve > /dev/null 2>&1 || true
+  echo "✅ Workaround applied"
+  
   # Step 4: Verify refactoring
+  echo ""
   echo "✅ Refactoring complete! New resource addresses:"
   terraform state list
   echo ""

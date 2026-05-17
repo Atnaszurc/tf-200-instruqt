@@ -20,7 +20,7 @@ mkdir -p /root/terraform/examples
 # Copy example files from GitHub to examples folder
 echo "Copying example files from GitHub to examples folder..."
 cp /root/lab-assets/assets/challenge-04/*.tf /root/terraform/examples/ 2>/dev/null || true
-cp /root/lab-assets/assets/challenge-04/*.sh /root/terraform/examples/ 2>/dev/null || true
+cp /root/lab-assets/assets/challenge-04/*.sh /root/terraform/ 2>/dev/null || true
 cp /root/lab-assets/assets/challenge-04/*.md /root/terraform/examples/ 2>/dev/null || true
 
 # Make scripts executable

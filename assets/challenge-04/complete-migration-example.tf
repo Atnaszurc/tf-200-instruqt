@@ -38,7 +38,6 @@ resource "libvirt_network" "production" {
 
   ips = [{
     address = "10.50.0.1"
-    prefix  = 24
     dhcp = {
       ranges = [{
         start = "10.50.0.2"
@@ -58,7 +57,6 @@ resource "libvirt_network" "staging" {
 
   ips = [{
     address = "10.51.0.1"
-    prefix  = 24
     dhcp = {
       ranges = [{
         start = "10.51.0.2"
@@ -78,7 +76,6 @@ resource "libvirt_network" "handoff" {
 
   ips = [{
     address = "10.52.0.1"
-    prefix  = 24
     dhcp = {
       ranges = [{
         start = "10.52.0.2"
@@ -110,11 +107,11 @@ output "migration_status" {
     imported = {
       production = {
         id   = libvirt_network.production.id
-        cidr = "${libvirt_network.production.ips[0].address}/${libvirt_network.production.ips[0].prefix}"
+        cidr = "${libvirt_network.production.ips[0].address}/${libvirt_network.production.ips[0]}"
       }
       staging = {
         id   = libvirt_network.staging.id
-        cidr = "${libvirt_network.staging.ips[0].address}/${libvirt_network.staging.ips[0].prefix}"
+        cidr = "${libvirt_network.staging.ips[0].address}/${libvirt_network.staging.ips[0]}"
       }
     }
     # handoff will be removed after applying removed block

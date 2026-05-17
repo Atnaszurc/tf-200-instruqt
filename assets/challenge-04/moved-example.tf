@@ -37,7 +37,6 @@ resource "libvirt_network" "production" {
 
   ips = [{
     address = "10.100.0.1"
-    prefix  = 24
     dhcp = {
       ranges = [{
         start = "10.100.0.2"
@@ -57,7 +56,6 @@ resource "libvirt_network" "application" {
 
   ips = [{
     address = "10.101.0.1"
-    prefix  = 24
     dhcp = {
       ranges = [{
         start = "10.101.0.2"
@@ -77,7 +75,6 @@ resource "libvirt_network" "database" {
 
   ips = [{
     address = "10.102.0.1"
-    prefix  = 24
     dhcp = {
       ranges = [{
         start = "10.102.0.2"
@@ -97,15 +94,15 @@ output "refactored_networks" {
   value = {
     production = {
       id   = libvirt_network.production.id
-      cidr = "${libvirt_network.production.ips[0].address}/${libvirt_network.production.ips[0].prefix}"
+      cidr = "${libvirt_network.production.ips[0].address}/${libvirt_network.production.ips[0]}"
     }
     application = {
       id   = libvirt_network.application.id
-      cidr = "${libvirt_network.application.ips[0].address}/${libvirt_network.application.ips[0].prefix}"
+      cidr = "${libvirt_network.application.ips[0].address}/${libvirt_network.application.ips[0]}"
     }
     database = {
       id   = libvirt_network.database.id
-      cidr = "${libvirt_network.database.ips[0].address}/${libvirt_network.database.ips[0].prefix}"
+      cidr = "${libvirt_network.database.ips[0].address}/${libvirt_network.database.ips[0]}"
     }
   }
 }

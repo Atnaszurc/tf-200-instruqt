@@ -43,7 +43,7 @@ notes:
     # Declarative import block
     import {
       to = libvirt_network.existing
-      id = "existing-network"
+      id = "a1b2c3d4-e5f6-7890-abcd-ef1234567890"  # Use actual UUID from virsh net-uuid
     }
 
     resource "libvirt_network" "existing" {
@@ -190,11 +190,17 @@ terraform plan
 
 **The New Way (Terraform 1.5+):**
 
+```bash
+# Step 0: Get the network UUID (libvirt requires UUIDs, not names)
+NETWORK_UUID=$(virsh net-uuid existing-network)
+echo $NETWORK_UUID  # e.g., 67c3b098-5846-4e5f-8787-f4a3bacca0e4
+```
+
 ```hcl
 # Step 1: Declare import in code (version controlled!)
 import {
   to = libvirt_network.existing
-  id = "existing-network"
+  id = "67c3b098-5846-4e5f-8787-f4a3bacca0e4"  # Use UUID, not name!
 }
 
 # Step 2: Let Terraform generate the configuration
@@ -203,8 +209,27 @@ import {
 # Step 3: Review generated configuration
 resource "libvirt_network" "existing" {
   name      = "existing-network"
-  mode      = "nat"
-  addresses = ["10.17.3.0/24"]
+  ips = [
+    {
+      address = "10.17.3.1"
+      dhcp = {
+        ranges = [{
+          start = "10.17.3.2"
+          end   = "10.17.3.254"
+        }]
+      }
+    }
+  ]
+
+
+  forward = {
+    mode = "nat"
+  }
+
+
+  dns = {
+    enabled = true
+  }
   # All attributes automatically discovered! ✅
 }
 ```
@@ -298,13 +323,32 @@ Import blocks (Terraform 1.5+) provide a **declarative** way to import existing 
 # Modern approach (declarative)
 import {
   to = libvirt_network.existing
-  id = "existing-network"
+  id = "a1b2c3d4-e5f6-7890-abcd-ef1234567890"  # Get UUID with: virsh net-uuid existing-network
 }
 
 resource "libvirt_network" "existing" {
   name      = "existing-network"
-  mode      = "nat"
-  addresses = ["10.17.3.0/24"]
+  ips = [
+    {
+      address = "10.17.3.1"
+      dhcp = {
+        ranges = [{
+          start = "10.17.3.2"
+          end   = "10.17.3.254"
+        }]
+      }
+    }
+  ]
+
+
+  forward = {
+    mode = "nat"
+  }
+
+
+  dns = {
+    enabled = true
+  }
 }
 ```
 
@@ -411,43 +455,100 @@ cat > imports.tf << 'EOF'
 
 import {
   to = libvirt_network.legacy
-  id = "legacy-network"
+  id = "legacy-uuid-here"  # Get with: virsh net-uuid legacy-network
 }
 
 import {
   to = libvirt_network.app
-  id = "app-network"
+  id = "app-uuid-here"  # Get with: virsh net-uuid app-network
 }
 
 import {
   to = libvirt_network.db
-  id = "db-network"
+  id = "db-uuid-here"  # Get with: virsh net-uuid db-network
 }
 EOF
 ```
 
 ### Step 3: Create Minimal Resource Definitions
 
-Create `networks.tf` with minimal resource definitions:
+Create `networks.tf.example` with minimal resource definitions:
 
 ```bash
-cat > networks.tf << 'EOF'
+cat > networks.tf.example << 'EOF'
 resource "libvirt_network" "legacy" {
   name      = "legacy-network"
-  mode      = "nat"
-  addresses = ["10.100.0.0/24"]
+  ips = [
+    {
+      address = "10.100.0.1"
+      dhcp = {
+        ranges = [{
+          start = "10.100.0.2"
+          end   = "10.100.0.254"
+        }]
+      }
+    }
+  ]
+
+
+  forward = {
+    mode = "nat"
+  }
+
+
+  dns = {
+    enabled = true
+  }
 }
 
 resource "libvirt_network" "app" {
   name      = "app-network"
-  mode      = "nat"
-  addresses = ["10.101.0.0/24"]
+  ips = [
+    {
+      address = "10.101.0.1"
+      dhcp = {
+        ranges = [{
+          start = "10.101.0.2"
+          end   = "10.101.0.254"
+        }]
+      }
+    }
+  ]
+
+
+  forward = {
+    mode = "nat"
+  }
+
+
+  dns = {
+    enabled = true
+  }
 }
 
 resource "libvirt_network" "db" {
   name      = "db-network"
-  mode      = "nat"
-  addresses = ["10.102.0.0/24"]
+  ips = [
+    {
+      address = "10.102.0.1"
+      dhcp = {
+        ranges = [{
+          start = "10.102.0.2"
+          end   = "10.102.0.254"
+        }]
+      }
+    }
+  ]
+
+
+  forward = {
+    mode = "nat"
+  }
+
+
+  dns = {
+    enabled = true
+  }
 }
 EOF
 ```
@@ -471,15 +572,17 @@ The generated file will contain the **actual** configuration of the existing net
 
 ### Step 5: Update Your Configuration
 
-Compare `generated.tf` with `networks.tf` and update `networks.tf` to match reality:
+Compare `generated.tf` with `networks.tf.example` and update `networks.tf` to match reality:
 
 ```bash
 # Review differences
-diff networks.tf generated.tf
+diff networks.tf.example generated.tf
 
 # Update networks.tf with accurate configuration
 # (You may need to add autostart, dns, dhcp settings, etc.)
 ```
+
+Important to note here is that the `generated.tf` will contain the **actual** configuration of the existing networks, with everything that the provider returns, including null values. These can cause issues when importing the resources. Ensure that when you run `terraform plan` that you see no destructive changes.
 
 ### Step 6: Import the Resources
 
@@ -504,7 +607,7 @@ terraform plan
 # Should show: "No changes. Your infrastructure matches the configuration."
 ```
 
-If you see changes, your configuration doesn't match the actual resource. Update `networks.tf` accordingly.
+If you see changes, your configuration doesn't match the actual resource. Update `generated.tf` accordingly.
 
 ---
 
@@ -768,22 +871,79 @@ moved {
 # Update resource definitions with new names
 resource "libvirt_network" "production" {
   name      = "legacy-network"  # Actual network name stays the same
-  mode      = "nat"
-  addresses = ["10.100.0.0/24"]
+  ips = [
+    {
+      address = "10.100.0.1"
+      dhcp = {
+        ranges = [{
+          start = "10.100.0.2"
+          end   = "10.100.0.254"
+        }]
+      }
+    }
+  ]
+
+
+  forward = {
+    mode = "nat"
+  }
+
+
+  dns = {
+    enabled = true
+  }
   autostart = true
 }
 
 resource "libvirt_network" "application" {
   name      = "app-network"
-  mode      = "nat"
-  addresses = ["10.101.0.0/24"]
+  ips = [
+    {
+      address = "10.101.0.1"
+      dhcp = {
+        ranges = [{
+          start = "10.101.0.2"
+          end   = "10.101.0.254"
+        }]
+      }
+    }
+  ]
+
+
+  forward = {
+    mode = "nat"
+  }
+
+
+  dns = {
+    enabled = true
+  }
   autostart = true
 }
 
 resource "libvirt_network" "database" {
   name      = "db-network"
-  mode      = "nat"
-  addresses = ["10.102.0.0/24"]
+  ips = [
+    {
+      address = "10.102.0.1"
+      dhcp = {
+        ranges = [{
+          start = "10.102.0.2"
+          end   = "10.102.0.254"
+        }]
+      }
+    }
+  ]
+
+
+  forward = {
+    mode = "nat"
+  }
+
+
+  dns = {
+    enabled = true
+  }
   autostart = true
 }
 ```
@@ -796,6 +956,11 @@ terraform plan
 
 # Apply the refactoring
 terraform apply
+
+# WORKAROUND: Libvirt provider bug with moved blocks
+# The provider may return null for some fields after moved blocks
+# Run refresh to sync state with actual resources
+terraform apply -refresh-only -auto-approve
 
 # Verify new addresses in state
 terraform state list
@@ -960,7 +1125,7 @@ terraform {
   required_providers {
     libvirt = {
       source  = "dmacvicar/libvirt"
-      version = "~> 0.7"
+      version = "~> 0.9"
     }
   }
 }
@@ -972,8 +1137,27 @@ provider "libvirt" {
 # Resource configuration (will be imported)
 resource "libvirt_network" "cli_imported" {
   name      = "cli-import-network"
-  mode      = "nat"
-  addresses = ["10.200.0.0/24"]
+  ips = [
+    {
+      address = "10.200.0.1"
+      dhcp = {
+        ranges = [{
+          start = "10.200.0.2"
+          end   = "10.200.0.254"
+        }]
+      }
+    }
+  ]
+
+
+  forward = {
+    mode = "nat"
+  }
+
+
+  dns = {
+    enabled = true
+  }
 }
 EOF
 ```
@@ -988,7 +1172,7 @@ terraform init
 
 ```bash
 # Import the existing network
-terraform import libvirt_network.cli_imported cli-import-network
+terraform import libvirt_network.cli_imported $(virsh net-uuid cli-import-network)
 
 # Verify import
 terraform state show libvirt_network.cli_imported
@@ -1036,8 +1220,27 @@ resource "libvirt_network" "networks" {
   for_each = local.networks_to_import
 
   name      = each.value
-  mode      = "nat"
-  addresses = ["10.${index(keys(local.networks_to_import), each.key) + 10}.0.0/24"]
+  ips = [
+    {
+      address = "10.${index(keys(local.networks_to_import), each.1"
+      dhcp = {
+        ranges = [{
+          start = "10.${index(keys(local.networks_to_import), each.2"
+          end   = "10.${index(keys(local.networks_to_import), each.254"
+        }]
+      }
+    }
+  ]
+
+
+  forward = {
+    mode = "nat"
+  }
+
+
+  dns = {
+    enabled = true
+  }
   autostart = true
 }
 ```
@@ -1067,48 +1270,70 @@ Let's import multiple networks at once.
 ```bash
 cd /root/terraform/bulk-import-demo
 
+cat > terraform.tfvars <<EOF
+tier1_network_uuid = "$(virsh net-uuid tier1-network)"
+tier2_network_uuid = "$(virsh net-uuid tier2-network)"
+tier3_network_uuid = "$(virsh net-uuid tier3-network)"
+EOF
+
 cat > main.tf << 'EOF'
 terraform {
   required_providers {
     libvirt = {
       source  = "dmacvicar/libvirt"
-      version = "~> 0.7"
+      version = "~> 0.9"
     }
   }
 }
 
+variable "tier1_network_uuid" {
+  type    = string
+  default = "change_me"
+}
+
+variable "tier2_network_uuid" {
+  type    = string
+  default = "change_me"
+}
+
+variable "tier3_network_uuid" {
+  type    = string
+  default = "change_me"
+}
 provider "libvirt" {
   uri = "qemu:///system"
 }
 
 locals {
   networks = {
-    "tier1" = { name = "tier1-network", cidr = "10.10.0.0/24" }
-    "tier2" = { name = "tier2-network", cidr = "10.20.0.0/24" }
-    "tier3" = { name = "tier3-network", cidr = "10.30.0.0/24" }
+    "tier1" = { name = "tier1-network", cidr = "10.10.0.0/24", uuid = var.tier1_network_uuid }
+    "tier2" = { name = "tier2-network", cidr = "10.20.0.0/24", uuid = var.tier2_network_uuid }
+    "tier3" = { name = "tier3-network", cidr = "10.30.0.0/24", uuid = var.tier3_network_uuid }
   }
 }
 
 import {
   for_each = local.networks
   to       = libvirt_network.tiers[each.key]
-  id       = each.value.name
+  id       = each.value.uuid
 }
 
 resource "libvirt_network" "tiers" {
-  for_each = local.networks
-
+  for_each  = local.networks
   name      = each.value.name
-  mode      = "nat"
-  addresses = [each.value.cidr]
   autostart = true
 
-  dns {
-    enabled = true
-  }
+  ips = [{
+    dhcp = {
+      ranges = [{
+        start = cidrhost(each.value.cidr, 2)
+        end   = cidrhost(each.value.cidr, -2)
+      }]
+    }
+  }]
 
-  dhcp {
-    enabled = true
+  forward = {
+    mode = "nat"
   }
 }
 EOF
@@ -1119,12 +1344,6 @@ EOF
 ```bash
 # Initialize
 terraform init
-
-# Generate configuration
-terraform plan -generate-config-out=generated.tf
-
-# Review generated config
-cat generated.tf
 
 # Import all networks
 terraform apply
@@ -1248,21 +1467,21 @@ ls -lh backup-*.tfstate
 ### Step 3: Create Import Configuration
 
 ```bash
-cat > imports.tf << 'EOF'
+cat > imports.tf <<EOF
 # Import networks with better names
 import {
   to = libvirt_network.production
-  id = "legacy-net-1"
+  id = "$(virsh net-uuid tier1-network)"
 }
 
 import {
   to = libvirt_network.staging
-  id = "legacy-net-2"
+  id = "$(virsh net-uuid tier2-network)"
 }
 
 import {
   to = libvirt_network.handoff
-  id = "legacy-net-3"
+  id = "$(virsh net-uuid tier3-network)"
 }
 EOF
 ```
@@ -1302,6 +1521,8 @@ removed {
   }
 }
 EOF
+
+# Remove handoff network configuration from generated.tf and imports.tf
 
 # Apply removal
 terraform apply

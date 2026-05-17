@@ -37,7 +37,7 @@ resource "libvirt_network" "legacy" {
 
   ips = [{
     address = "10.100.0.1"
-    prefix  = 24
+
     dhcp = {
       ranges = [{
         start = "10.100.0.2"
@@ -57,7 +57,6 @@ resource "libvirt_network" "app" {
 
   ips = [{
     address = "10.101.0.1"
-    prefix  = 24
     dhcp = {
       ranges = [{
         start = "10.101.0.2"
@@ -77,7 +76,6 @@ resource "libvirt_network" "db" {
 
   ips = [{
     address = "10.102.0.1"
-    prefix  = 24
     dhcp = {
       ranges = [{
         start = "10.102.0.2"
@@ -97,15 +95,15 @@ output "imported_networks" {
   value = {
     legacy = {
       id   = libvirt_network.legacy.id
-      cidr = "${libvirt_network.legacy.ips[0].address}/${libvirt_network.legacy.ips[0].prefix}"
+      cidr = "${libvirt_network.legacy.ips[0].address}/${libvirt_network.legacy.ips[0]}"
     }
     app = {
       id   = libvirt_network.app.id
-      cidr = "${libvirt_network.app.ips[0].address}/${libvirt_network.app.ips[0].prefix}"
+      cidr = "${libvirt_network.app.ips[0].address}/${libvirt_network.app.ips[0]}"
     }
     db = {
       id   = libvirt_network.db.id
-      cidr = "${libvirt_network.db.ips[0].address}/${libvirt_network.db.ips[0].prefix}"
+      cidr = "${libvirt_network.db.ips[0].address}/${libvirt_network.db.ips[0]}"
     }
   }
 }

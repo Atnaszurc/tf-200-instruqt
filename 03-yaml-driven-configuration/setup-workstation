@@ -27,7 +27,7 @@ mkdir examples
 cp -r /root/lab-assets/assets/challenge-03/config ./examples
 
 # Copy module files
-cp -r /root/lab-assets/assets/challenge-03/modules ./exmples
+cp -r /root/lab-assets/assets/challenge-03/modules ./examples
 
 # Copy example files
 cp /root/lab-assets/assets/challenge-03/*.tf ./examples

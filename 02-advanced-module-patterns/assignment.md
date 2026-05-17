@@ -923,7 +923,7 @@ terraform {
 locals {
   # Network ID (UUID) for output and reference
   network_id = var.create_network ? libvirt_network.this[0].id : var.existing_network_id
-  
+
   # Network name for device configuration
   network_name = var.create_network ? libvirt_network.this[0].name : var.existing_network_name
 
@@ -1380,7 +1380,7 @@ resource "libvirt_volume" "stable" {
   name     = "${var.app_name}-stable-${count.index + 1}.qcow2"
   pool     = "default"
   capacity = 1073741824  # 1GB
-  
+
   target = {
     format = {
       type = "qcow2"
@@ -1395,7 +1395,7 @@ resource "libvirt_volume" "canary" {
   name     = "${var.app_name}-canary-${count.index + 1}.qcow2"
   pool     = "default"
   capacity = 1073741824  # 1GB
-  
+
   target = {
     format = {
       type = "qcow2"

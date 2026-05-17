@@ -38,7 +38,6 @@ resource "libvirt_network" "tiers" {
 
   ips = [{
     address = split("/", each.value.cidr)[0]
-    prefix  = tonumber(split("/", each.value.cidr)[1])
     dhcp = {
       ranges = [{
         start = cidrhost(each.value.cidr, 2)
@@ -60,7 +59,7 @@ output "tier_networks" {
     key => {
       id   = net.id
       name = net.name
-      cidr = "${net.ips[0].address}/${net.ips[0].prefix}"
+      cidr = "${net.ips[0].address}/${net.ips[0]}"
     }
   }
 }
