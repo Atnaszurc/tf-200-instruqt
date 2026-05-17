@@ -1,141 +1,166 @@
-terraform {
-  required_version = ">= 1.14"
-  required_providers {
-    libvirt = {
-      source  = "dmacvicar/libvirt"
-      version = "~> 0.9"
-    }
-  }
-}
-
-provider "libvirt" {
-  uri = "qemu:///system"
-}
-
-# Parse complex YAML configuration
 locals {
   infra_config = yamldecode(file("${path.module}/config/infrastructure.yaml"))
-  
-  # Extract sections
-  networks = local.infra_config.infrastructure.networks
-  storage  = local.infra_config.infrastructure.storage
-  vms      = local.infra_config.infrastructure.vms
-}
 
-# Validate configuration with module
-module "validate_config" {
-  source = "./modules/yaml-validator"
-  
-  config_file   = "${path.module}/config/infrastructure.yaml"
-  required_keys = ["infrastructure"]
+  # Extract sections
+  infra_networks = local.infra_config.infrastructure.networks
+  infra_pools    = local.infra_config.infrastructure.storage.pools
+  infra_vms      = local.infra_config.infrastructure.vms
+  infra_env      = local.infra_config.environment
 }
 
 # Create networks
-resource "libvirt_network" "networks" {
-  for_each = local.networks
-  
-  name      = each.key
+resource "libvirt_network" "infra_networks" {
+  for_each = local.infra_networks
+
+  name      = "${local.infra_env.name}-${each.key}-network"
   autostart = true
-  
+
+  forward = {
+    mode = each.value.mode
+  }
+
+  domain = {
+    name = each.value.domain
+  }
+
   ips = [
     {
-      address = split("/", each.value.cidr)[0]
-      prefix  = tonumber(split("/", each.value.cidr)[1])
+      address = cidrhost(each.value.cidr, 1)
+      prefix  = split("/", each.value.cidr)[1]
       dhcp = {
-        ranges = [{
-          start = cidrhost(each.value.cidr, 2)
-          end   = cidrhost(each.value.cidr, -2)
-        }]
+        enabled = true
       }
     }
   ]
-  
-  forward = {
-    mode = "nat"
-  }
-  
-  dns = {
-    enabled = true
-  }
 }
 
 # Create storage pools
-resource "libvirt_pool" "pools" {
-  for_each = local.storage.pools
-  
-  name = each.key
+resource "libvirt_pool" "infra_pools" {
+  for_each = local.infra_pools
+
+  name = "${local.infra_env.name}-${each.key}-pool"
   type = each.value.type
-  
+
   target = {
-    path = "/var/lib/libvirt/images/${each.key}"
+    path = each.value.path
   }
 }
 
 # Create VM volumes
-resource "libvirt_volume" "vm_volumes" {
-  for_each = local.vms
-  
-  name     = "${each.key}-disk.qcow2"
-  pool     = libvirt_pool.pools["default"].name
-  capacity = each.value.disk_gb * 1024 * 1024 * 1024
-  
+resource "libvirt_volume" "infra_vm_disks" {
+  for_each = local.infra_vms
+
+  name = "${local.infra_env.name}-${each.key}.qcow2"
+  pool = libvirt_pool.infra_pools[each.value.pool].name
+
   target = {
     format = {
       type = "qcow2"
     }
   }
+
+  capacity = each.value.disk_gb * 1073741824 # Convert GB to bytes
 }
 
 # Create VMs
-resource "libvirt_domain" "vms" {
-  for_each = local.vms
-  
-  name   = each.key
-  type   = "kvm"
-  memory = each.value.memory_mb
-  vcpu   = each.value.vcpu
-  
+resource "libvirt_domain" "infra_vms" {
+  for_each = local.infra_vms
+
+  name      = "${local.infra_env.name}-${each.key}"
+  memory    = each.value.memory_mb
+  vcpu      = each.value.vcpu
+  autostart = each.value.autostart
+  type      = "kvm"
+  os = {
+    type = "hvm"
+  }
+
   devices = {
     disks = [
       {
-        volume_id = libvirt_volume.vm_volumes[each.key].name
+        source = {
+          volume = {
+            pool   = each.value.pool
+            volume = libvirt_volume.infra_vm_disks[each.key].name
+          }
+        }
+        target = {
+          dev = "vda"
+          bus = "virtio"
+        }
       }
     ]
-    
-    network_interfaces = [
+
+    interfaces = [
       {
-        network_id     = libvirt_network.networks[each.value.network].id
+        network = {
+          network = libvirt_network.infra_networks[each.value.network].name
+        }
+        model = {
+          type = "virtio"
+        }
         wait_for_lease = true
       }
     ]
-    
-    consoles = [
+
+    console = [
       {
-        type        = "pty"
-        target_port = 0
+        type = "pty"
+        target = {
+          type = "serial"
+          port = 0
+        }
       }
     ]
   }
 }
 
-# Output infrastructure details
-output "infrastructure" {
-  description = "Infrastructure details"
+# Create metadata file with tags
+resource "local_file" "infra_vm_metadata" {
+  for_each = local.infra_vms
+
+  filename = "/tmp/${local.infra_env.name}-${each.key}-metadata.json"
+  content = jsonencode({
+    vm_name     = each.key
+    environment = local.infra_env.name
+    network     = each.value.network
+    pool        = each.value.pool
+    tags        = each.value.tags
+    owner       = local.infra_env.owner
+    cost_center = local.infra_env.cost_center
+  })
+}
+output "infrastructure_summary" {
+  description = "Complete infrastructure summary"
   value = {
-    networks = {
-      for name, net in libvirt_network.networks :
-      name => {
-        id   = net.id
-        cidr = "${net.ips[0].address}/${net.ips[0].prefix}"
-      }
+    environment = local.infra_env.name
+    networks    = length(libvirt_network.infra_networks)
+    pools       = length(libvirt_pool.infra_pools)
+    vms         = length(libvirt_domain.infra_vms)
+  }
+}
+
+output "network_details" {
+  description = "Network details"
+  value = {
+    for name, net in libvirt_network.infra_networks :
+    name => {
+      id     = net.id
+      bridge = net.bridge
     }
-    vms = {
-      for name, vm in libvirt_domain.vms :
-      name => {
-        id     = vm.id
-        memory = vm.memory
-        vcpu   = vm.vcpu
-      }
+  }
+}
+
+output "vm_details" {
+  description = "VM details"
+  value = {
+    for name, vm in libvirt_domain.infra_vms :
+    name => {
+      id      = vm.id
+      memory  = vm.memory
+      vcpu    = vm.vcpu
+      network = local.infra_vms[name].network
+      tags    = local.infra_vms[name].tags
     }
   }
 }

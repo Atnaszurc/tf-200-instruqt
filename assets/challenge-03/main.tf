@@ -12,41 +12,7 @@ provider "libvirt" {
   uri = "qemu:///system"
 }
 
-# Parse YAML configuration
-locals {
-  network_config = yamldecode(file("${path.module}/config/networks.yaml"))
-  
-  # Transform to map for for_each
-  networks = {
-    for net in local.network_config.networks :
-    net.name => net
-  }
-}
 
-# Create networks from YAML
-resource "libvirt_network" "networks" {
-  for_each = local.networks
-  
-  name      = each.value.name
-  autostart = true
-  
-  ips = [
-    {
-      address = split("/", each.value.cidr)[0]
-      prefix  = tonumber(split("/", each.value.cidr)[1])
-      dhcp = {
-        ranges = [{
-          start = cidrhost(each.value.cidr, 2)
-          end   = cidrhost(each.value.cidr, -2)
-        }]
-      }
-    }
-  ]
-  
-  forward = {
-    mode = each.value.mode
-  }
-}
 
 # Output network information
 output "networks" {
@@ -58,4 +24,22 @@ output "networks" {
       cidr = "${net.ips[0].address}/${net.ips[0].prefix}"
     }
   }
+}
+
+# Validate configuration before use
+module "config_validator" {
+  source = "./modules/yaml-validator"
+
+  config_file = "${path.module}/config/infrastructure.yaml"
+  required_keys = [
+    "infrastructure",
+    "environment"
+  ]
+}
+
+# Use validated configuration
+locals {
+  validated_config       = module.config_validator.config
+  infra_config_validated = local.validated_config.infrastructure
+  env_config             = local.validated_config.environment
 }
