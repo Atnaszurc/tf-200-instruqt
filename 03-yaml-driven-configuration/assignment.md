@@ -28,7 +28,6 @@ tabs:
   type: code
   hostname: workstation
   path: /root/terraform-workspace
-  new_file: true
 difficulty: basic
 timelimit: 5400
 enhanced_loading: null
@@ -175,7 +174,6 @@ output "networks" {
     name => {
       id     = net.id
       bridge = net.bridge
-      cidr   = net.addresses[0]
     }
   }
 }
@@ -320,17 +318,17 @@ locals {
   infra_config = yamldecode(file("${path.module}/config/infrastructure.yaml"))
 
   # Extract sections
-  networks = local.infra_config.infrastructure.networks
-  pools    = local.infra_config.infrastructure.storage.pools
-  vms      = local.infra_config.infrastructure.vms
-  env      = local.infra_config.environment
+  infra_networks = local.infra_config.infrastructure.networks
+  infra_pools    = local.infra_config.infrastructure.storage.pools
+  infra_vms      = local.infra_config.infrastructure.vms
+  infra_env      = local.infra_config.environment
 }
 
 # Create networks
-resource "libvirt_network" "networks" {
-  for_each = local.networks
+resource "libvirt_network" "infra_networks" {
+  for_each = local.infra_networks
 
-  name      = "${local.env.name}-${each.key}-network"
+  name      = "${local.infra_env.name}-${each.key}-network"
   autostart = true
 
   forward = {
@@ -353,10 +351,11 @@ resource "libvirt_network" "networks" {
 }
 
 # Create storage pools
-resource "libvirt_pool" "pools" {
-  for_each = local.pools
+resource "libvirt_pool" "infra_pools" {
+  for_each = local.infra_pools
 
-  name = "${local.env.name}-${each.key}-pool"
+  name = "${local.infra_env.name}-${each.key}-pool"
+  type = each.value.type
 
   target = {
     path = each.value.path
@@ -364,28 +363,30 @@ resource "libvirt_pool" "pools" {
 }
 
 # Create VM volumes
-resource "libvirt_volume" "vm_disks" {
-  for_each = local.vms
+resource "libvirt_volume" "infra_vm_disks" {
+  for_each = local.infra_vms
 
-  name = "${local.env.name}-${each.key}.qcow2"
-  pool = libvirt_pool.pools[each.value.pool].name
+  name = "${local.infra_env.name}-${each.key}.qcow2"
+  pool = libvirt_pool.infra_pools[each.value.pool].name
 
   target = {
-    format = "qcow2"
+    format = {
+      type = "qcow2"
+    }
   }
 
   capacity = each.value.disk_gb * 1073741824  # Convert GB to bytes
 }
 
 # Create VMs
-resource "libvirt_domain" "vms" {
-  for_each = local.vms
+resource "libvirt_domain" "infra_vms" {
+  for_each = local.infra_vms
 
-  name      = "${local.env.name}-${each.key}"
+  name      = "${local.infra_env.name}-${each.key}"
   memory    = each.value.memory_mb
   vcpu      = each.value.vcpu
   autostart = each.value.autostart
-
+  type   = "kvm"
   os = {
     type = "hvm"
   }
@@ -396,7 +397,7 @@ resource "libvirt_domain" "vms" {
         source = {
           volume = {
             pool   = each.value.pool
-            volume = libvirt_volume.vm_disks[each.key].name
+            volume = libvirt_volume.infra_vm_disks[each.key].name
           }
         }
         target = {
@@ -409,7 +410,7 @@ resource "libvirt_domain" "vms" {
     interfaces = [
       {
         network = {
-          network = libvirt_network.networks[each.value.network].name
+          network = libvirt_network.infra_networks[each.value.network].name
         }
         model = {
           type = "virtio"
@@ -431,18 +432,18 @@ resource "libvirt_domain" "vms" {
 }
 
 # Create metadata file with tags
-resource "local_file" "vm_metadata" {
-  for_each = local.vms
+resource "local_file" "infra_vm_metadata" {
+  for_each = local.infra_vms
 
-  filename = "/tmp/${local.env.name}-${each.key}-metadata.json"
+  filename = "/tmp/${local.infra_env.name}-${each.key}-metadata.json"
   content = jsonencode({
     vm_name     = each.key
-    environment = local.env.name
+    environment = local.infra_env.name
     network     = each.value.network
     pool        = each.value.pool
     tags        = each.value.tags
-    owner       = local.env.owner
-    cost_center = local.env.cost_center
+    owner       = local.infra_env.owner
+    cost_center = local.infra_env.cost_center
   })
 }
 ```
@@ -453,21 +454,20 @@ Create `infrastructure_outputs.tf`:
 output "infrastructure_summary" {
   description = "Complete infrastructure summary"
   value = {
-    environment = local.env.name
-    networks    = length(libvirt_network.networks)
-    pools       = length(libvirt_pool.pools)
-    vms         = length(libvirt_domain.vms)
+    environment = local.infra_env.name
+    networks    = length(libvirt_network.infra_networks)
+    pools       = length(libvirt_pool.infra_pools)
+    vms         = length(libvirt_domain.infra_vms)
   }
 }
 
 output "network_details" {
   description = "Network details"
   value = {
-    for name, net in libvirt_network.networks :
+    for name, net in libvirt_network.infra_networks :
     name => {
       id     = net.id
       bridge = net.bridge
-      cidr   = net.addresses[0]
     }
   }
 }
@@ -475,13 +475,13 @@ output "network_details" {
 output "vm_details" {
   description = "VM details"
   value = {
-    for name, vm in libvirt_domain.vms :
+    for name, vm in libvirt_domain.infra_vms :
     name => {
       id       = vm.id
       memory   = vm.memory
       vcpu     = vm.vcpu
-      network  = local.vms[name].network
-      tags     = local.vms[name].tags
+      network  = local.infra_vms[name].network
+      tags     = local.infra_vms[name].tags
     }
   }
 }
@@ -722,9 +722,9 @@ module "config_validator" {
 
 # Use validated configuration
 locals {
-  validated_config = module.config_validator.config
-  infra_config     = local.validated_config.infrastructure
-  env_config       = local.validated_config.environment
+  validated_config           = module.config_validator.config
+  infra_config_validated     = local.validated_config.infrastructure
+  env_config                 = local.validated_config.environment
 }
 ```
 
@@ -738,7 +738,7 @@ Create `validation.tf`:
 # Validate network CIDRs don't overlap
 locals {
   network_cidrs = [
-    for name, net in local.networks :
+    for name, net in local.infra_networks :
     net.cidr
   ]
 
@@ -759,7 +759,7 @@ resource "terraform_data" "validate_networks" {
 # Validate VM memory is reasonable
 locals {
   vm_memory_checks = {
-    for name, vm in local.vms :
+    for name, vm in local.infra_vms :
     name => vm.memory_mb >= 512 && vm.memory_mb <= 16384
   }
 
@@ -781,8 +781,8 @@ resource "terraform_data" "validate_vm_memory" {
 # Validate VM references valid networks
 locals {
   vm_network_checks = {
-    for name, vm in local.vms :
-    name => contains(keys(local.networks), vm.network)
+    for name, vm in local.infra_vms :
+    name => contains(keys(local.infra_networks), vm.network)
   }
 
   invalid_network_vms = [
@@ -816,6 +816,11 @@ resource "terraform_data" "validate_vm_networks" {
 Use separate YAML files for each environment.
 
 ### Lab 4: Multi-Environment Configuration
+
+> **⚠️ Important**: This lab demonstrates a different pattern. Clean up previous lab files first:
+> ```bash
+> rm -f main.tf outputs.tf
+> ```
 
 #### Step 1: Create Environment-Specific YAML Files
 
@@ -910,7 +915,25 @@ infrastructure:
       autostart: true
 ```
 
-#### Step 2: Create Environment Selector
+#### Step 2: Create Terraform Configuration
+
+First, create `main.tf` with the terraform block:
+
+```hcl
+terraform {
+  required_version = ">= 1.14"
+  required_providers {
+    libvirt = {
+      source  = "dmacvicar/libvirt"
+      version = "~> 0.9"
+    }
+  }
+}
+
+provider "libvirt" {
+  uri = "qemu:///system"
+}
+```
 
 Create `variables.tf`:
 
@@ -974,7 +997,9 @@ resource "libvirt_volume" "env_vm_disks" {
   pool = "default"
 
   target = {
-    format = "qcow2"
+    format = {
+      type = "qcow2"
+    }
   }
 
   capacity = each.value.disk_gb * 1073741824
@@ -987,7 +1012,7 @@ resource "libvirt_domain" "env_vms" {
   memory    = each.value.memory_mb
   vcpu      = each.value.vcpu
   autostart = each.value.autostart
-
+  type = "kvm"
   os = {
     type = "hvm"
   }

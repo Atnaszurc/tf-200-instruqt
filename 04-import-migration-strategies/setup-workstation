@@ -5,7 +5,8 @@ set -euo pipefail
 # This script prepares the environment with existing infrastructure to import
 
 echo "Setting up Challenge 4: Import & Migration Strategies..."
-
+cd /root/terraform-workspace
+terraform destroy -auto-approve || true
 # Clone the lab assets repository first
 echo "Cloning lab assets from GitHub..."
 cd /root
@@ -14,15 +15,16 @@ git clone https://github.com/Atnaszurc/tf-200-instruqt.git lab-assets
 
 # Create base directory structure
 mkdir -p /root/terraform/{import-demo,refactor-demo,handoff-demo,cli-import-demo,bulk-import-demo,migration-demo}
+mkdir -p /root/terraform/examples
 
-# Copy example files from GitHub to terraform workspace
-echo "Copying example files from GitHub..."
-cp /root/lab-assets/assets/challenge-04/*.tf /root/terraform/ 2>/dev/null || true
-cp /root/lab-assets/assets/challenge-04/*.sh /root/terraform/ 2>/dev/null || true
-cp /root/lab-assets/assets/challenge-04/*.md /root/terraform/ 2>/dev/null || true
+# Copy example files from GitHub to examples folder
+echo "Copying example files from GitHub to examples folder..."
+cp /root/lab-assets/assets/challenge-04/*.tf /root/terraform/examples/ 2>/dev/null || true
+cp /root/lab-assets/assets/challenge-04/*.sh /root/terraform/examples/ 2>/dev/null || true
+cp /root/lab-assets/assets/challenge-04/*.md /root/terraform/examples/ 2>/dev/null || true
 
 # Make scripts executable
-chmod +x /root/terraform/*.sh 2>/dev/null || true
+chmod +x /root/terraform/examples/*.sh 2>/dev/null || true
 
 # ============================================================================
 # Setup 1: Import Demo - Pre-create networks for import practice

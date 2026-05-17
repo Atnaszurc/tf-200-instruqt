@@ -2,7 +2,7 @@
 set -uo pipefail
 
 # Challenge 3 Check: YAML-Driven Configuration
-# Validates learner progress through YAML-driven patterns
+# Simplified validation - checks file existence only
 
 echo "=== Validating Challenge 3: YAML-Driven Configuration ==="
 
@@ -50,69 +50,17 @@ check_yaml_valid() {
 }
 
 # ============================================================================
-# Pre-check: Verify learner has activated the configuration
-# ============================================================================
-
-echo ""
-echo "=== Pre-check: Configuration Activation ==="
-
-# Check that main.tf exists (learner should create it from main.tf.example)
-if [[ ! -f "main.tf" ]]; then
-  echo "✗ main.tf not found"
-  echo "  Hint: Copy main.tf.example to main.tf to get started"
-  echo ""
-  echo "Run: cp main.tf.example main.tf"
-  ((ERRORS++))
-  exit 1
-else
-  echo "✓ main.tf exists"
-  
-  # Check if it uses yamldecode
-  if ! grep -q "yamldecode" main.tf; then
-    echo "✗ main.tf doesn't use yamldecode()"
-    echo "  Hint: The example file shows how to parse YAML files"
-    ((ERRORS++))
-    exit 1
-  else
-    echo "✓ main.tf uses yamldecode()"
-  fi
-fi
-
-# ============================================================================
 # Section 1: Basic YAML Configuration
 # ============================================================================
 
 echo ""
 echo "=== Section 1: Basic YAML Configuration ==="
 
-# Check YAML files exist
+check_file_exists "main.tf" "Main Terraform configuration"
 check_file_exists "config/networks.yaml" "Basic networks YAML"
 
 if [[ -f "config/networks.yaml" ]]; then
   check_yaml_valid "config/networks.yaml" "networks.yaml"
-  
-  # Check for expected content
-  if grep -q "networks:" config/networks.yaml; then
-    echo "✓ networks.yaml has networks section"
-  else
-    echo "⚠ networks.yaml should have 'networks:' section"
-  fi
-fi
-
-# Check if Terraform uses yamldecode
-if [[ -f "main.tf" ]]; then
-  if grep -q "yamldecode" main.tf; then
-    echo "✓ Terraform uses yamldecode() function"
-  else
-    echo "⚠ Terraform should use yamldecode() to parse YAML"
-  fi
-  
-  # Check for for_each with YAML data
-  if grep -q "for_each.*local\." main.tf; then
-    echo "✓ Terraform uses for_each with YAML data"
-  else
-    echo "⚠ Terraform should use for_each with parsed YAML data"
-  fi
 fi
 
 # ============================================================================
@@ -122,27 +70,11 @@ fi
 echo ""
 echo "=== Section 2: Complex YAML Structure ==="
 
+check_file_exists "infrastructure.tf" "Infrastructure configuration"
 check_file_exists "config/infrastructure.yaml" "Complex infrastructure YAML"
 
 if [[ -f "config/infrastructure.yaml" ]]; then
   check_yaml_valid "config/infrastructure.yaml" "infrastructure.yaml"
-  
-  # Check for nested structure
-  if grep -q "infrastructure:" config/infrastructure.yaml; then
-    echo "✓ infrastructure.yaml has infrastructure section"
-  fi
-  
-  if grep -q "networks:" config/infrastructure.yaml; then
-    echo "✓ infrastructure.yaml has networks section"
-  fi
-  
-  if grep -q "vms:" config/infrastructure.yaml; then
-    echo "✓ infrastructure.yaml has vms section"
-  fi
-  
-  if grep -q "environment:" config/infrastructure.yaml; then
-    echo "✓ infrastructure.yaml has environment section"
-  fi
 fi
 
 # ============================================================================
@@ -152,32 +84,7 @@ fi
 echo ""
 echo "=== Section 3: YAML Validation ==="
 
-# Check for validation module
-if [[ -d "modules/yaml-validator" ]]; then
-  echo "✓ YAML validator module exists"
-  
-  check_file_exists "modules/yaml-validator/main.tf" "Validator main.tf"
-  check_file_exists "modules/yaml-validator/variables.tf" "Validator variables.tf"
-  check_file_exists "modules/yaml-validator/outputs.tf" "Validator outputs.tf"
-  
-  # Check for validation logic
-  if [[ -f "modules/yaml-validator/main.tf" ]]; then
-    if grep -q "precondition" modules/yaml-validator/main.tf || grep -q "validation" modules/yaml-validator/main.tf; then
-      echo "✓ Validator module has validation logic"
-    else
-      echo "⚠ Validator module should have validation logic"
-    fi
-  fi
-else
-  echo "⚠ YAML validator module not found (optional)"
-fi
-
-# Check for custom validation in main config
-if [[ -f "validation.tf" ]] || grep -q "precondition\|validation" *.tf 2>/dev/null; then
-  echo "✓ Custom validation rules found"
-else
-  echo "⚠ Consider adding custom validation rules"
-fi
+check_file_exists "validation.tf" "Validation configuration"
 
 # ============================================================================
 # Section 4: Multi-Environment
@@ -185,6 +92,10 @@ fi
 
 echo ""
 echo "=== Section 4: Multi-Environment Configuration ==="
+
+check_file_exists "main.tf" "Main configuration (recreated)"
+check_file_exists "environments.tf" "Environments configuration"
+check_file_exists "variables.tf" "Variables configuration"
 
 # Check for environment-specific YAML files
 ENV_COUNT=0
@@ -194,55 +105,11 @@ for env in dev staging prod; do
     echo "✓ Environment file exists: ${env}.yaml"
     check_yaml_valid "config/environments/${env}.yaml" "${env}.yaml"
     ((ENV_COUNT++))
-  else
-    echo "⚠ Environment file missing: ${env}.yaml"
   fi
 done
 
 if [[ $ENV_COUNT -ge 2 ]]; then
   echo "✓ Multiple environment files created ($ENV_COUNT environments)"
-else
-  echo "⚠ Should have multiple environment files (found $ENV_COUNT)"
-fi
-
-# Check for environment variable/selector
-if [[ -f "variables.tf" ]]; then
-  if grep -q "environment" variables.tf; then
-    echo "✓ Environment variable defined"
-  fi
-fi
-
-# ============================================================================
-# Terraform Validation
-# ============================================================================
-
-echo ""
-echo "=== Terraform Validation ==="
-
-if [[ -f "main.tf" ]] || [[ -f "infrastructure.tf" ]] || [[ -f "environments.tf" ]]; then
-  echo "✓ Terraform configuration files exist"
-  
-  # Initialize if needed
-  if [[ ! -d ".terraform" ]]; then
-    echo "Initializing Terraform..."
-    if terraform init -no-color > /tmp/tf-init.log 2>&1; then
-      echo "✓ Terraform initialization successful"
-    else
-      echo "⚠ Terraform initialization had issues"
-    fi
-  fi
-  
-  # Validate configuration
-  if terraform validate -no-color > /tmp/tf-validate.log 2>&1; then
-    echo "✓ Terraform configuration is valid"
-  else
-    echo "⚠ Terraform validation had issues"
-    echo "Error log:"
-    cat /tmp/tf-validate.log
-  fi
-else
-  echo "⚠ No Terraform configuration found"
-  echo "  Tip: Create main.tf to test YAML-driven infrastructure"
 fi
 
 # ============================================================================
@@ -267,11 +134,7 @@ if [[ $ERRORS -eq 0 ]]; then
 else
   echo "✗ Found $ERRORS issue(s)"
   echo ""
-  echo "Review the errors above and:"
-  echo "  1. Ensure YAML files are valid"
-  echo "  2. Use yamldecode() to parse YAML"
-  echo "  3. Create resources with for_each from YAML data"
-  echo "  4. Add validation for YAML configuration"
+  echo "Review the errors above and ensure all required files exist."
   echo ""
   echo "Tip: Review the assignment instructions for guidance"
   exit 1

@@ -13,32 +13,23 @@ echo ""
 
 cd /root/terraform
 
-# Clean up any leftover files from previous challenges
-echo "🧹 Cleaning workspace..."
-echo "Current directory: $(pwd)"
-echo "Files before cleanup:"
-ls -la | head -10
-echo ""
+# Copy solution from examples folder
+echo "📁 Deploying solution from examples folder..."
 
-# Remove all files and directories (including hidden ones except . and ..)
-find . -mindepth 1 -maxdepth 1 ! -name '.' ! -name '..' -exec rm -rf {} + 2>/dev/null || true
-
-echo "Files after cleanup:"
-ls -la
-echo "✅ Workspace cleaned"
-echo ""
-
-# Clone GitHub repository with assets
-echo "📦 Cloning solution assets from GitHub..."
-cd /root
-rm -rf lab-assets
-git clone https://github.com/Atnaszurc/tf-200-instruqt.git lab-assets
-
-# Copy complete solution from assets
-echo "📁 Deploying solution files..."
-cd /root/terraform
-cp -r /root/lab-assets/assets/challenge-05/* .
-echo "✅ Solution files deployed"
+if [ -d "/root/terraform/examples" ]; then
+  # Copy all solution files from examples
+  cp -r /root/terraform/examples/* /root/terraform/
+  echo "✅ Solution files deployed from examples folder"
+else
+  # Fallback: Clone from GitHub if examples folder doesn't exist
+  echo "⚠️  Examples folder not found, cloning from GitHub..."
+  cd /root
+  rm -rf lab-assets
+  git clone https://github.com/Atnaszurc/tf-200-instruqt.git lab-assets
+  cd /root/terraform
+  cp -r /root/lab-assets/assets/challenge-05/* .
+  echo "✅ Solution files deployed from GitHub"
+fi
 echo ""
 
 # Create generated directory for outputs

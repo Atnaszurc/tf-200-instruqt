@@ -8,6 +8,21 @@ echo "Solving Challenge 4: Import & Migration Strategies..."
 echo ""
 
 # ============================================================================
+# Copy example files from examples folder to working directory
+# ============================================================================
+echo "Copying example files from examples folder..."
+if [ -d "/root/terraform/examples" ]; then
+  cp /root/terraform/examples/*.tf /root/terraform/ 2>/dev/null || true
+  cp /root/terraform/examples/*.sh /root/terraform/ 2>/dev/null || true
+  cp /root/terraform/examples/*.md /root/terraform/ 2>/dev/null || true
+  chmod +x /root/terraform/*.sh 2>/dev/null || true
+  echo "✅ Example files copied to working directory"
+else
+  echo "⚠️  Examples folder not found, continuing without example files"
+fi
+echo ""
+
+# ============================================================================
 # Solution 1: Import Demo - CLI Import with UUIDs
 # ============================================================================
 echo "=== Solution 1: Import Demo ==="

@@ -29,7 +29,6 @@ tabs:
   type: code
   hostname: workstation
   path: /root/terraform-workspace
-  new_file: true
 difficulty: basic
 timelimit: 5400
 enhanced_loading: null
@@ -165,11 +164,13 @@ This module creates a Libvirt network (bottom layer).
 ```bash
 cd /root/terraform-workspace
 mkdir -p modules/network
+cd modules/network
 ```
 
 Create `modules/network/variables.tf`:
 
-```hcl
+```bash
+cat <<EOF > variables.tf
 variable "network_name" {
   description = "Name of the network"
   type        = string
@@ -192,11 +193,13 @@ variable "domain" {
   type        = string
   default     = "local"
 }
+EOF
 ```
 
 Create `modules/network/main.tf`:
 
-```hcl
+```bash
+cat <<EOF > main.tf
 terraform {
   required_version = ">= 1.14"
   required_providers {
@@ -235,11 +238,13 @@ resource "libvirt_network" "this" {
     name = var.domain
   }
 }
+EOF
 ```
 
 Create `modules/network/outputs.tf`:
 
-```hcl
+```bash
+cat <<EOF > outputs.tf
 output "id" {
   description = "Network ID"
   value       = libvirt_network.this.id
@@ -254,6 +259,7 @@ output "bridge" {
   description = "Bridge interface"
   value       = libvirt_network.this.bridge
 }
+EOF
 ```
 
 #### Step 2: Create the Storage Module
@@ -261,12 +267,15 @@ output "bridge" {
 This module creates storage pools and volumes (middle layer).
 
 ```bash
+cd /root/terraform-workspace
 mkdir -p modules/storage
+cd modules/storage
 ```
 
 Create `modules/storage/variables.tf`:
 
-```hcl
+```bash
+cat <<EOF > variables.tf
 variable "pool_name" {
   description = "Name of the storage pool"
   type        = string
@@ -292,11 +301,13 @@ variable "volumes" {
   }))
   default = {}
 }
+EOF
 ```
 
 Create `modules/storage/main.tf`:
 
-```hcl
+```bash
+cat <<EOF > main.tf
 terraform {
   required_version = ">= 1.14"
   required_providers {
@@ -329,11 +340,13 @@ resource "libvirt_volume" "volumes" {
     }
   }
 }
+EOF
 ```
 
 Create `modules/storage/outputs.tf`:
 
-```hcl
+```bash
+cat <<EOF > outputs.tf
 output "pool_id" {
   description = "Storage pool ID"
   value       = libvirt_pool.this.id
@@ -348,6 +361,7 @@ output "volume_names" {
   description = "Map of volume names"
   value       = { for k, v in libvirt_volume.volumes : k => v.name }
 }
+EOF
 ```
 
 #### Step 3: Create the Compute Module
@@ -355,12 +369,16 @@ output "volume_names" {
 This module creates VMs using storage volumes (middle layer).
 
 ```bash
+cd /root/terraform-workspace
 mkdir -p modules/compute
+cd modules/compute
 ```
 
 Create `modules/compute/variables.tf`:
 
-```hcl
+```bash
+cat <<EOF > variables.tf
+
 variable "vms" {
   description = "Map of VMs to create"
   type = map(object({
@@ -380,11 +398,13 @@ variable "autostart" {
   type        = bool
   default     = false
 }
+EOF
 ```
 
 Create `modules/compute/main.tf`:
 
-```hcl
+```bash
+cat <<EOF > main.tf
 terraform {
   required_version = ">= 1.14"
   required_providers {
@@ -443,11 +463,13 @@ resource "libvirt_domain" "vms" {
     }]
   }
 }
+EOF
 ```
 
 Create `modules/compute/outputs.tf`:
 
-```hcl
+```bash
+cat << EOF > outputs.tf
 output "vm_ids" {
   description = "Map of VM IDs"
   value       = { for k, v in libvirt_domain.vms : k => v.id }
@@ -457,6 +479,7 @@ output "vm_names" {
   description = "Map of VM names"
   value       = { for k, v in libvirt_domain.vms : k => v.name }
 }
+EOF
 ```
 
 #### Step 4: Create the App-Stack Module (Top Layer)
@@ -464,12 +487,15 @@ output "vm_names" {
 This module composes all three layers into a simple interface.
 
 ```bash
+cd /root/terraform-workspace
 mkdir -p modules/app-stack
+cd modules/app-stack
 ```
 
 Create `modules/app-stack/variables.tf`:
 
-```hcl
+```bash
+cat << EOF > variables.tf
 variable "app_name" {
   description = "Application name"
   type        = string
@@ -493,11 +519,13 @@ variable "vms" {
     disk_gb    = number
   }))
 }
+EOF
 ```
 
 Create `modules/app-stack/main.tf`:
 
-```hcl
+```bash
+cat << EOF > main.tf
 terraform {
   required_version = ">= 1.14"
   required_providers {
@@ -553,11 +581,13 @@ module "compute" {
 
   depends_on = [module.storage]
 }
+EOF
 ```
 
 Create `modules/app-stack/outputs.tf`:
 
-```hcl
+```bash
+cat << EOF > outputs.tf
 output "network_info" {
   description = "Network information"
   value = {
@@ -582,6 +612,7 @@ output "vm_info" {
     names = module.compute.vm_names
   }
 }
+EOF
 ```
 
 #### Step 5: Use the App-Stack Module
@@ -594,7 +625,8 @@ cd /root/terraform-workspace
 
 Create `main.tf`:
 
-```hcl
+```bash
+cat << EOF > main.tf
 terraform {
   required_version = ">= 1.14"
   required_providers {
@@ -634,15 +666,18 @@ module "my_app" {
     }
   }
 }
+EOF
 ```
 
 Create `outputs.tf`:
 
-```hcl
+```bash
+cat << EOF > outputs.tf
 output "app_stack" {
   description = "Complete application stack information"
   value       = module.my_app
 }
+EOF
 ```
 
 #### Step 6: Test the Nested Modules
@@ -674,9 +709,11 @@ terraform plan
 
 **You learned `count` and `for_each` to create multiple resources:**
 ```hcl
+# Simplified example showing count concept
 resource "libvirt_domain" "vm" {
   count = 3  # Create 3 VMs
   name  = "vm-${count.index}"
+  # ... other required attributes (type, os, devices, etc.)
 }
 ```
 
@@ -687,10 +724,12 @@ What if you want to create a resource **only sometimes**?
 **The Trick:**
 Use `count` with 0 or 1:
 ```hcl
+# Simplified example showing conditional creation
 resource "libvirt_domain" "monitoring" {
   count = var.enable_monitoring ? 1 : 0  # Create if enabled, skip if not
 
   name = "monitoring-server"
+  # ... other required attributes (type, os, devices, etc.)
 }
 ```
 
@@ -788,9 +827,10 @@ resource "libvirt_network" "this" {
 **Pattern 2: Multiple Resources Conditional**
 
 ```hcl
+# Simplified example - full implementation in Lab 4
 resource "libvirt_domain" "canary" {
   count = var.enable_canary ? var.canary_count : 0
-  # ...
+  # ... other required attributes
 }
 ```
 
@@ -831,7 +871,13 @@ variable "create_network" {
 }
 
 variable "existing_network_id" {
-  description = "ID of existing network (if create_network = false)"
+  description = "ID (UUID) of existing network (if create_network = false)"
+  type        = string
+  default     = ""
+}
+
+variable "existing_network_name" {
+  description = "Name of existing network (if create_network = false)"
   type        = string
   default     = ""
 }
@@ -865,7 +911,7 @@ terraform {
   required_providers {
     libvirt = {
       source  = "dmacvicar/libvirt"
-      version = "~> 0.8"
+      version = "~> 0.9"
     }
     local = {
       source  = "hashicorp/local"
@@ -875,8 +921,11 @@ terraform {
 }
 
 locals {
-  # Use created or existing network
+  # Network ID (UUID) for output and reference
   network_id = var.create_network ? libvirt_network.this[0].id : var.existing_network_id
+  
+  # Network name for device configuration
+  network_name = var.create_network ? libvirt_network.this[0].name : var.existing_network_name
 
   # Auto-start only in production
   autostart = var.environment == "prod"
@@ -893,23 +942,24 @@ resource "libvirt_network" "this" {
   count = var.create_network ? 1 : 0
 
   name      = "${var.app_name}-${var.environment}-network"
-  mode      = "nat"
-  addresses = ["192.168.210.0/24"]
   autostart = true
 
-  dhcp {
-    enabled = true
-  }
+  # Note: In libvirt provider 0.9+, networks are automatically NAT-enabled with DHCP
 }
 
 # Create volumes for VMs
 resource "libvirt_volume" "vm_disks" {
   for_each = var.vms
 
-  name   = "${var.app_name}-${var.environment}-${each.key}.qcow2"
-  pool   = "default"
-  format = "qcow2"
-  size   = 1073741824  # 1GB
+  name     = "${var.app_name}-${var.environment}-${each.key}.qcow2"
+  pool     = "default"
+  capacity = 1073741824  # 1GB
+
+  target = {
+    format = {
+      type = "qcow2"
+    }
+  }
 }
 
 # Create VMs
@@ -917,22 +967,46 @@ resource "libvirt_domain" "vms" {
   for_each = var.vms
 
   name      = "${var.app_name}-${var.environment}-${each.key}"
+  type      = "kvm"
   memory    = each.value.memory_mb
   vcpu      = each.value.vcpu_count
   autostart = local.autostart
 
-  disk {
-    volume_id = libvirt_volume.vm_disks[each.key].id
+  os = {
+    type = "hvm"
   }
 
-  network_interface {
-    network_id = local.network_id
-  }
+  devices = {
+    disks = [{
+      source = {
+        volume = {
+          pool   = "default"
+          volume = libvirt_volume.vm_disks[each.key].name
+        }
+      }
+      target = {
+        dev = "vda"
+        bus = "virtio"
+      }
+    }]
 
-  console {
-    type        = "pty"
-    target_type = "serial"
-    target_port = "0"
+    interfaces = [{
+      network = {
+        network = local.network_name
+      }
+      model = {
+        type = "virtio"
+      }
+      wait_for_lease = true
+    }]
+
+    console = [{
+      type = "pty"
+      target = {
+        type = "serial"
+        port = 0
+      }
+    }]
   }
 }
 
@@ -1073,6 +1147,7 @@ Remove web-02 → Others unchanged (SAFE!)
 **Pattern 1: Map-Based For_Each**
 
 ```hcl
+# Simplified example showing for_each with map
 variable "vms" {
   type = map(object({
     memory_mb  = number
@@ -1086,12 +1161,14 @@ resource "libvirt_domain" "vm" {
   name   = each.key
   memory = each.value.memory_mb
   vcpu   = each.value.vcpu_count
+  # ... other required attributes (type, os, devices, etc.)
 }
 ```
 
 **Pattern 2: Set-Based For_Each**
 
 ```hcl
+# Simplified example showing for_each with set
 variable "vm_names" {
   type = set(string)
 }
@@ -1102,15 +1179,17 @@ resource "libvirt_domain" "vm" {
   name   = each.key
   memory = 512
   vcpu   = 1
+  # ... other required attributes (type, os, devices, etc.)
 }
 ```
 
 **Pattern 3: Conditional For_Each**
 
 ```hcl
+# Simplified example showing conditional for_each
 resource "libvirt_domain" "vm" {
   for_each = var.enable_vms ? var.vms : {}
-  # ...
+  # ... other required attributes
 }
 ```
 
@@ -1118,9 +1197,17 @@ resource "libvirt_domain" "vm" {
 
 You've already seen for_each in action! Let's explore more advanced patterns.
 
-Create `for_each_examples.tf`:
+**Note**: These are reference examples showing advanced for_each patterns. You can create `for_each_examples.tf` in your working directory to experiment with these patterns, but you'll need to define the referenced variables first (or adapt the examples to use existing variables from your modules).
+
+Create `for_each_examples.tf` (optional reference file):
 
 ```hcl
+# NOTE: These examples reference variables that don't exist in the root module.
+# To use these patterns, either:
+# 1. Add these examples to modules/conditional-vm/main.tf (where var.vms exists)
+# 2. Define the variables in your root module first
+# 3. Use these as reference patterns to understand for_each capabilities
+
 # Example 1: For_each with filtering
 locals {
   # Only create VMs with memory >= 1024
@@ -1279,13 +1366,8 @@ terraform {
 
 locals {
   # Calculate instance counts
-  stable_count = var.enable_canary ?
-    floor(var.total_instances * (1 - var.canary_percentage / 100)) :
-    var.total_instances
-
-  canary_count = var.enable_canary ?
-    ceil(var.total_instances * (var.canary_percentage / 100)) :
-    0
+  stable_count = var.enable_canary ? floor(var.total_instances * (1 - var.canary_percentage / 100)) : var.total_instances
+  canary_count = var.enable_canary ? ceil(var.total_instances * (var.canary_percentage / 100)) : 0
 
   # Verify counts add up
   total_check = local.stable_count + local.canary_count
@@ -1295,20 +1377,30 @@ locals {
 resource "libvirt_volume" "stable" {
   count = local.stable_count
 
-  name   = "${var.app_name}-stable-${count.index + 1}.qcow2"
-  pool   = "default"
-  format = "qcow2"
-  size   = 1073741824  # 1GB
+  name     = "${var.app_name}-stable-${count.index + 1}.qcow2"
+  pool     = "default"
+  capacity = 1073741824  # 1GB
+  
+  target = {
+    format = {
+      type = "qcow2"
+    }
+  }
 }
 
 # Canary version volumes
 resource "libvirt_volume" "canary" {
   count = local.canary_count
 
-  name   = "${var.app_name}-canary-${count.index + 1}.qcow2"
-  pool   = "default"
-  format = "qcow2"
-  size   = 1073741824  # 1GB
+  name     = "${var.app_name}-canary-${count.index + 1}.qcow2"
+  pool     = "default"
+  capacity = 1073741824  # 1GB
+  
+  target = {
+    format = {
+      type = "qcow2"
+    }
+  }
 }
 
 # Stable version instances
@@ -1316,34 +1408,46 @@ resource "libvirt_domain" "stable" {
   count = local.stable_count
 
   name      = "${var.app_name}-stable-${count.index + 1}"
+  type      = "kvm"
   memory    = var.memory_mb
   vcpu      = var.vcpu_count
   autostart = false
 
-  disk {
-    volume_id = libvirt_volume.stable[count.index].id
+  os = {
+    type = "hvm"
   }
 
-  network_interface {
-    network_id = var.network_id
-  }
+  devices = {
+    disks = [{
+      source = {
+        volume = {
+          pool   = "default"
+          volume = libvirt_volume.stable[count.index].name
+        }
+      }
+      target = {
+        dev = "vda"
+        bus = "virtio"
+      }
+    }]
 
-  console {
-    type        = "pty"
-    target_type = "serial"
-    target_port = "0"
-  }
+    interfaces = [{
+      network = {
+        uuid = var.network_id
+      }
+      model = {
+        type = "virtio"
+      }
+      wait_for_lease = true
+    }]
 
-  # Metadata to identify version
-  xml {
-    xslt = <<-EOT
-      <?xml version="1.0" ?>
-      <xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
-        <xsl:template match="/">
-          <xsl:copy-of select="."/>
-        </xsl:template>
-      </xsl:stylesheet>
-    EOT
+    console = [{
+      type = "pty"
+      target = {
+        type = "serial"
+        port = 0
+      }
+    }]
   }
 }
 
@@ -1352,22 +1456,46 @@ resource "libvirt_domain" "canary" {
   count = local.canary_count
 
   name      = "${var.app_name}-canary-${count.index + 1}"
+  type      = "kvm"
   memory    = var.memory_mb
   vcpu      = var.vcpu_count
   autostart = false
 
-  disk {
-    volume_id = libvirt_volume.canary[count.index].id
+  os = {
+    type = "hvm"
   }
 
-  network_interface {
-    network_id = var.network_id
-  }
+  devices = {
+    disks = [{
+      source = {
+        volume = {
+          pool   = "default"
+          volume = libvirt_volume.canary[count.index].name
+        }
+      }
+      target = {
+        dev = "vda"
+        bus = "virtio"
+      }
+    }]
 
-  console {
-    type        = "pty"
-    target_type = "serial"
-    target_port = "0"
+    interfaces = [{
+      network = {
+        uuid = var.network_id
+      }
+      model = {
+        type = "virtio"
+      }
+      wait_for_lease = true
+    }]
+
+    console = [{
+      type = "pty"
+      target = {
+        type = "serial"
+        port = 0
+      }
+    }]
   }
 }
 

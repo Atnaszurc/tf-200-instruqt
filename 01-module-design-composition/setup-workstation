@@ -21,28 +21,22 @@ git clone https://github.com/Atnaszurc/tf-200-instruqt.git lab-assets
 # Copy Challenge 1 assets to workspace
 echo "Copying Challenge 1 assets to workspace..."
 cd /root/terraform-workspace
-
+mkdir -p examples
 # Copy all module files
-cp -r /root/lab-assets/assets/challenge-01/modules ./
+cp -r /root/lab-assets/assets/challenge-01/modules ./examples/
 
 # Copy example files
-cp /root/lab-assets/assets/challenge-01/main.tf.example ./
-cp /root/lab-assets/assets/challenge-01/outputs.tf.example ./
+cp /root/lab-assets/assets/challenge-01/main.tf ./examples/
+cp /root/lab-assets/assets/challenge-01/outputs.tf ./examples/
 
 # Copy README
-cp /root/lab-assets/assets/challenge-01/README.md ./
+cp /root/lab-assets/assets/challenge-01/README.md ./examples/
 
 echo "✓ Setup complete!"
 echo ""
 echo "Workspace ready at: /root/terraform-workspace"
-echo "Modules created:"
-echo "  - modules/app-config"
-echo "  - modules/libvirt-network"
-echo "  - modules/libvirt-vm"
-echo ""
 echo "Example files available:"
-echo "  - main.tf.example (rename to main.tf to use)"
-echo "  - outputs.tf.example (rename to outputs.tf to use)"
+echo "  - Under examples/ folder"
 echo ""
 echo "Follow the challenge instructions to learn module design!"
 

@@ -40,7 +40,6 @@ tabs:
   type: code
   hostname: workstation
   path: /root/terraform
-  new_file: true
 difficulty: basic
 timelimit: 7200
 enhanced_loading: null
@@ -238,7 +237,7 @@ resource "libvirt_domain" "server" {
       source = {
         volume = {
           pool   = "default"
-          volume = libvirt_volume.server[count.index].id
+          volume = libvirt_volume.server[count.index].name
         }
       }
       target = {

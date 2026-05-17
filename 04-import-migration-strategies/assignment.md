@@ -121,7 +121,6 @@ tabs:
   type: code
   hostname: workstation
   path: /root/terraform
-  new_file: true
 difficulty: basic
 timelimit: 3600
 enhanced_loading: null

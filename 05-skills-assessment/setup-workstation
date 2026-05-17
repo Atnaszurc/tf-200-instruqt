@@ -59,13 +59,15 @@ rm -rf lab-assets
 git clone https://github.com/Atnaszurc/tf-200-instruqt.git lab-assets
 
 # Create base directory structure
-mkdir -p /root/terraform/{modules,config,legacy}
+mkdir -p /root/terraform/{modules,config,legacy,examples}
 
-# Copy YAML configuration files from GitHub
-echo "Copying YAML configuration files from GitHub..."
+# Copy complete solution to examples folder
+echo "Copying solution files to examples folder..."
+cp -r /root/lab-assets/assets/challenge-05/* /root/terraform/examples/
+
+# Copy only YAML configuration files and README to working directory
+echo "Copying YAML configuration files to working directory..."
 cp -r /root/lab-assets/assets/challenge-05/config/* /root/terraform/config/
-
-# Copy README from GitHub
 cp /root/lab-assets/assets/challenge-05/README.md /root/terraform/
 
 # ============================================================================

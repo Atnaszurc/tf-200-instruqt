@@ -60,7 +60,6 @@ tabs:
   type: code
   hostname: workstation
   path: /root/terraform-workspace
-  new_file: true
 difficulty: basic
 timelimit: 5400
 enhanced_loading: null
@@ -1341,7 +1340,6 @@ output "network_info" {
     id        = module.app_network.id
     name      = module.app_network.name
     bridge    = module.app_network.bridge
-    addresses = module.app_network.addresses
   }
 }
 
@@ -1368,6 +1366,7 @@ EOF
 ### Test the Refactoring
 
 ```bash
+terraform init
 terraform plan
 ```
 
