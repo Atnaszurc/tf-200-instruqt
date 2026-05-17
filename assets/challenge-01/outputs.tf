@@ -4,10 +4,9 @@
 output "network_info" {
   description = "Network information"
   value = {
-    id        = module.app_network.id
-    name      = module.app_network.name
-    bridge    = module.app_network.bridge
-    addresses = module.app_network.addresses
+    id     = module.app_network.id
+    name   = module.app_network.name
+    bridge = module.app_network.bridge
   }
 }
 
